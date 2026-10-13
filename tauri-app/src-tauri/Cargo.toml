@@ -1,0 +1,34 @@
+[package]
+name = "comfy-media-viewer"
+version = "3.0.0"
+description = "ComfyMediaViewer - ComfyUI output browser desktop shell"
+edition = "2021"
+
+# ε-10 依赖修复：resolver 1 = 所有依赖种类（normal / build / proc-macro）的 feature
+# 统一合并。tauri 的 schemars(preserve_order)→indexmap 1.9.3 链在 proc-macro 隔离舱里，
+# resolver 2 下我们注入的 indexmap/std feature 合并不进去（实测 cargo tree 两节点分立）；
+# resolver 1 强制合并 ⇒ indexmap 1.9.3 的 build.rs 见到 CARGO_FEATURE_STD，
+# 直接 emit has_std，绕开它在 rustc 1.98.1 下失效的 autocfg sysroot 探测。
+[workspace]
+resolver = "1"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# ε-10 依赖修复（7-6 引入 single-instance 时暴露）：tauri-utils 的 schemars(preserve_order)
+# 会带上 indexmap 1.9.3，而它的 build.rs 在 rustc 1.98.1 下 autocfg sysroot 探测失败
+# （不 emit has_std）⇒ rustc 走 #[cfg(not(has_std))] 的无默认泛型定义 ⇒
+# schemars 的 `type Map<K,V> = IndexMap<K,V>` 报 E0107。
+# 本条**不参与本 crate 代码**，只为用 cargo 的 feature 联合把 std 塞进 indexmap 1.9.3
+# ——build.rs 见到 CARGO_FEATURE_STD 会走「直接 emit」分支，绕过探测。
+indexmap = { version = "1.9.3", features = ["std"] }
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1

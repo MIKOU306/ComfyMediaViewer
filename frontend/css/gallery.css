@@ -1,0 +1,314 @@
+/* ComfyMediaViewer · css/gallery.css
+   中央舞台：工具条 / 网格 / 卡片（规范 5.2）/ 批量栏 / Toast。 */
+
+/* ---------- 中央舞台 ---------- */
+#content{flex:1;display:flex;flex-direction:column;min-width:0;position:relative;background:var(--bg)}
+/* 网格：minmax(200px,1fr) + 16px 间距（规范 1.2）；密度滑块可通过 --card-min/--grid-gap 覆盖 */
+/* V39：滚动条槽位常驻 —— 实测筛选前后 #gridwrap.clientWidth 在 1298 / 1308 间跳
+   （溢出态有 10px 滚动条、不溢出时没有）⇒ 每改一次筛选条件卡片都左右抖一下。
+   `stable` 让槽位一直留着，代价是内容恒定少 10px，换取零跳动。 */
+#gridwrap{flex:1;overflow-y:auto;padding:var(--pad-page);position:relative;scrollbar-gutter:stable}
+#grid{display:grid;gap:var(--grid-gap,var(--gap-card));
+  grid-template-columns:repeat(auto-fill,minmax(min(var(--card-min,200px),100%),1fr))}
+#sent{height:1px}
+/* 筛选状态条：当前生效的条件 + 一键清除 */
+#filterChips{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);
+  padding:var(--sp-2) var(--pad-page);background:var(--bg);
+  border-bottom:1px solid var(--border);font-size:var(--fs-sm);color:var(--tx2)}
+#filterChips .fclbl{color:var(--tx3);font-size:var(--fs-meta)}
+#filterChips .fchip{display:inline-flex;align-items:center;gap:var(--sp-1);background:var(--panel);
+  border:1px solid var(--border2);border-radius:var(--r-pill);height:calc(24px*var(--fsx));
+  padding:0 var(--sp-1) 0 var(--sp-2);color:var(--tx);max-width:calc(340px*var(--fsx));min-width:0}
+/* 文字自己负责省略号，✕ 永远固定不收缩（否则长名字会把 ✕ 顶出可视区） */
+#filterChips .fchip .lbl{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#filterChips .fchip .x{cursor:pointer;color:var(--tx3);padding:0 var(--sp-1);flex:0 0 auto;
+  border-radius:var(--r-sm);line-height:var(--lh-none)}
+#filterChips .fchip .x:hover{color:var(--err-tx);background:var(--err-bg)}
+/* 回到顶部（滚动超过一屏才出现） */
+#toTop{position:absolute;right:var(--sp-4);bottom:var(--sp-4);z-index:var(--z-float);
+  width:calc(40px*var(--fsx));height:calc(40px*var(--fsx));min-height:0;border-radius:var(--r-pill);cursor:pointer;
+  background:var(--panel);border:1px solid var(--border2);color:var(--tx2);padding:0;
+  font-size:calc(16px*var(--fsx));display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--sh-2);transition:color var(--dur-fast),background var(--dur-fast)}
+#toTop .iico{width:calc(14px*var(--fsx));height:calc(14px*var(--fsx))}
+#toTop:hover{color:var(--tx);background:var(--panel3)}
+#toTop[hidden]{display:none}
+/* 密度滑块（原生 accent-color：自动垂直居中，thumb 圆心可贴轨道两端=可拖到底） */
+#densRange,#fsRange{width:100%;accent-color:var(--ac);cursor:pointer;height:calc(16px*var(--fsx));
+  min-height:calc(16px*var(--fsx));background:transparent;padding:0;margin:0;border:0}
+
+/* ============================================================
+   媒体卡片（规范 5.2）
+   - 容器：8px 圆角、#181B24 底、无可见外边框（悬停才高亮边框 + 阴影）
+   - 缩略图：贴边铺满、等比、顶部角随卡片圆角
+   - 元信息区：底部对齐；文件名 12px、元信息 10.5px、标签 10px 粗体
+   - 叠加元素：左上角格式徽章 / 右上角收藏与批量勾选
+   ============================================================ */
+.card{position:relative;background:var(--panel);border-radius:var(--r-lg);overflow:hidden;
+  cursor:pointer;border:1px solid transparent;display:flex;flex-direction:column;
+  /* U1（批次 A）：基础态补**透明**阴影初值 —— 与 :hover 的 --sh-2 同结构，
+     于是移出时阴影沿 transition 渐隐而非突变。全透明 ⇒ 观感与改动前完全一致。 */
+  box-shadow:var(--sh-0);
+  transition:border-color var(--dur-base) var(--ease-std),box-shadow var(--dur-base) var(--ease-std),transform var(--dur-base) var(--ease-std)}
+.card:hover{border-color:var(--border2);box-shadow:var(--sh-2);transform:translateY(-1px)}
+.card:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
+
+/* ---------- 缩略图骨架 + 渐显（V2.9.2 · U1） ----------
+   默认状态全部「不可见」：骨架 opacity:0、图片不透明 —— 与改动前完全一致。
+   只有 JS 判定「这张还没解码完」时才给卡片加 .cmv-ld：骨架淡入并呼吸、图片压到 0；
+   解码完成后 JS 移除 .cmv-ld，两者以同为 .18s·ease-out 交叉淡变，取代原来的「空白 → 突现」。
+   好处：万一 JS 没跑到（脚本报错 / 被拦），行为 100% 回退现状，不会出现「图永远不显示」。
+   只在网格视图启用：列表视图是「左图右文」的横向行，aspect-ratio:1 的骨架会盖住整行文字。 */
+body:not(.list-view) #grid .card::before{content:"";position:absolute;left:0;top:0;width:100%;
+  aspect-ratio:1;background:var(--sunken);z-index:var(--z-img);pointer-events:none;opacity:0;
+  transition:opacity var(--dur-base) var(--ease-out)}
+body:not(.list-view) #grid .card.cmv-ld::before{opacity:1;animation:cmvSk var(--dur-loop) var(--ease-std) infinite}
+/* V28：缩略图渐进 —— 骨架到成像由「硬切」升级为 scale(.98)→1 + 淡入。
+   不做 blur-up：9000 张图下模糊滤镜太贵。transition 提到基础态（两态都有），
+   只动 transform/opacity，落在合成层不触发重排。 */
+body:not(.list-view) #grid .card>img,
+body:not(.list-view) #grid .card>video{
+  transition:opacity var(--dur-base) var(--ease-out),transform var(--dur-base) var(--ease-out)}
+body:not(.list-view) #grid .card.cmv-ld>img,
+body:not(.list-view) #grid .card.cmv-ld>video{opacity:0;transform:scale(.98)}
+/* 呼吸动的是背景色而不是 opacity：opacity 要留给「骨架淡出」，被动画占用会让淡出失效 */
+@keyframes cmvSk{0%,100%{background-color:var(--sunken)}50%{background-color:var(--panel2)}}
+/* 目录卡 / 时间轴组头没有缩略图，不给骨架 */
+body:not(.list-view) #grid .card.dir::before,
+body:not(.list-view) #grid .card.tl-full::before{content:none}
+
+/* ---------- 悬停层次 + 顶部可读性遮罩（V2.9.2 · U5） ----------
+   只抬容器、不放大缩略图：放大画面会干扰看图与取色，这是看图工具不能碰的。
+   阴影 --sh-1 → --sh-2、边框 --border → --border2，容器仍上抬 1px。
+   顶部 32px 渐变仅悬停出现，让左上角格式徽章在浅色图上依然读得清（功能性遮挡）。 */
+body:not(.list-view) #grid .card:not(.dir):not(.tl-full)::after{content:"";position:absolute;
+  left:0;top:0;width:100%;height:calc(32px*var(--fsx));z-index:var(--z-img);pointer-events:none;
+  background:linear-gradient(to bottom,rgba(8,9,12,.42),rgba(8,9,12,0));
+  opacity:0;transition:opacity var(--dur-base) var(--ease-out)}
+body:not(.list-view) #grid .card:not(.dir):not(.tl-full):hover::after{opacity:1}
+/* 批量模式（V2.10.0 · U8）：勾选框与格式徽章要在**所有**卡片上可读，不能等悬停。
+   于是同一层遮罩在批量模式下常显；浅色缩略图上的角标也因此有了底衬。 */
+body.batch:not(.list-view) #grid .card:not(.dir):not(.tl-full)::after{opacity:1}
+.card img,.card video{width:100%;aspect-ratio:1;object-fit:contain;display:block;
+  background:var(--canvas);border-radius:0;margin:0}
+body.cover .card img,body.cover .card video{object-fit:cover}
+/* 网格视图：文件名常显（左下角半透明胶囊）；标签/快捷操作为右下角悬停浮层。
+   cinfo 仅作 DOM 容器（display:contents），列表视图同样拆开保持列序 */
+body:not(.list-view) #grid .card .cinfo{display:contents}
+/* 文件名胶囊：常显、不拦截点击（pointer-events:none 保证整卡可点）；行高等于盒高实现垂直居中 */
+body:not(.list-view) #grid .card .cap{position:absolute;left:calc(5px*var(--fsx));bottom:calc(5px*var(--fsx));
+  z-index:var(--z-cap);max-width:calc(100% - 10px*var(--fsx));margin:0;padding:0 calc(6px*var(--fsx));
+  height:calc(18px*var(--fsx));line-height:calc(17px*var(--fsx));
+  background:rgba(var(--ovl-rgb),.62);color:var(--ovl-tx);border-radius:var(--r-pill);
+  font-size:var(--fs-sm);text-shadow:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  pointer-events:none;backdrop-filter:blur(var(--blur-sm))}
+/* 标签 + 下载/打开/更多：右下角，悬停浮现 */
+body:not(.list-view) #grid .card .crdtags{position:absolute;right:calc(6px*var(--fsx));bottom:calc(6px*var(--fsx));
+  left:auto;z-index:var(--z-chip);display:flex;align-items:center;gap:var(--sp-1);margin:0;padding:0;flex-wrap:nowrap;
+  opacity:0;pointer-events:none;transition:opacity var(--dur-fast) var(--ease-std)}
+body:not(.list-view) #grid .card:hover .crdtags,
+body:not(.list-view) #grid .card:focus-within .crdtags{opacity:1;pointer-events:auto}
+body:not(.list-view) #grid .card .snip{display:none}
+/* 文件名（规范 Card Title 12px）——margin-top:auto 把元信息区压到卡片底部 */
+.card .cap{position:static;margin-top:auto;padding:var(--sp-2) var(--sp-2) 0;
+  font-size:var(--fs-sm);color:var(--tx);background:none;text-shadow:none;text-align:left;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:var(--lh-tight)}
+/* 左上角：格式 + 尺寸 角标（上下两行）。背景只包住 PNG 一行，分辨率行无底色、
+   用文字阴影保证可读 —— 避免整块矩形按最长行取宽、遮挡过多画面 */
+.card .wicon{position:absolute;top:calc(5px*var(--fsx));left:calc(5px*var(--fsx));
+  display:flex;flex-direction:column;align-items:flex-start;gap:1px;
+  color:var(--ovl-tx);line-height:var(--lh-tight);font-size:calc(8px*var(--fsx));letter-spacing:var(--ls-tight)}
+.card .wicon b{font-weight:var(--fw-semi);width:fit-content;background:rgba(var(--ovl-rgb),.45);
+  border-radius:var(--r-sm);padding:2px calc(5px*var(--fsx));backdrop-filter:blur(var(--blur-sm))}
+.card .wicon i{font-style:normal;opacity:.85;font-variant-numeric:tabular-nums;
+  font-size:calc(7px*var(--fsx));padding:0 calc(2px*var(--fsx));
+  text-shadow:0 1px 2px rgba(0,0,0,.85),0 0 4px rgba(0,0,0,.5)}   /* 无底色行：描影代替底色 */
+.card .wicon i:empty{display:none}
+/* 底部：标签行 + 悬停操作 + 更多 */
+.card .crdtags{position:static;display:flex;align-items:center;gap:var(--sp-1);flex-wrap:wrap;
+  padding:var(--sp-1) var(--sp-2) var(--sp-2);opacity:1}
+.card .crdtags .tgs{display:flex;align-items:center;gap:var(--sp-1);min-width:0;overflow:hidden}
+.card .crdtags .ct{display:inline-flex;align-items:center;gap:calc(2px*var(--fsx));max-width:calc(96px*var(--fsx));
+  height:calc(18px*var(--fsx));padding:0 var(--sp-1);border-radius:var(--r-sm);
+  background:var(--panel2);border:1px solid transparent;color:var(--tx2);
+  font-size:var(--fs-tag);font-weight:var(--fw-bold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .crdtags .ct.more{color:var(--tx3);font-weight:var(--fw-normal)}
+.card .crdtags .more{margin-left:auto;flex:none;color:var(--tx3);cursor:pointer;
+  width:calc(22px*var(--fsx));height:calc(22px*var(--fsx));line-height:calc(22px*var(--fsx));
+  text-align:center;border-radius:var(--r-sm);
+  display:flex;align-items:center;justify-content:center}
+.card .crdtags .more .iico{width:calc(14px*var(--fsx));height:calc(14px*var(--fsx))}
+.card .crdtags .more:hover{background:var(--panel3);color:var(--tx)}
+.card .qacts{position:static;display:flex;gap:calc(2px*var(--fsx));margin-left:auto;flex:none;
+  opacity:0;transition:opacity var(--dur-fast)}
+.card:hover .qacts{opacity:1;pointer-events:auto}
+.card .qa{width:calc(22px*var(--fsx));height:calc(22px*var(--fsx));line-height:calc(22px*var(--fsx));
+  text-align:center;border-radius:var(--r-sm);background:var(--panel2);color:var(--tx2);
+  cursor:pointer;font-size:var(--fs-sm);
+  display:flex;align-items:center;justify-content:center}
+.card .qa .iico{width:calc(14px*var(--fsx));height:calc(14px*var(--fsx))}
+.card .qa:hover{background:var(--ac);color:var(--on-ac)}
+/* 相对路径 / 搜索结果片段：文件名下方一行灰字（Meta 10.5px） */
+.card .snip{position:static;display:flex;align-items:center;gap:calc(2px*var(--fsx));
+  padding:0 var(--sp-2);
+  font-size:var(--fs-meta);color:var(--tx3);background:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .snip .iico{width:calc(10px*var(--fsx));height:calc(10px*var(--fsx));flex:none;opacity:.85}
+.card .snip > span{overflow:hidden;text-overflow:ellipsis}
+.card .badge{position:absolute;top:var(--sp-2);right:var(--sp-2);
+  background:rgba(var(--ovl-rgb),.68);color:var(--ovl-tx);border-radius:var(--r-sm);
+  font-size:var(--fs-micro);padding:2px var(--sp-1);
+  display:flex;align-items:center}
+.card .badge .iico{width:calc(11px*var(--fsx));height:calc(11px*var(--fsx))}
+.card .fcat{position:absolute;top:calc(var(--sp-2) + var(--ovl-step));left:var(--sp-2);
+  background:var(--gold-fill);color:var(--on-gold);border-radius:var(--r-sm);
+  font-size:var(--fs-micro);padding:1px var(--sp-1);max-width:calc(90px*var(--fsx));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:var(--fw-semi)}
+.card .star{position:absolute;top:var(--sp-1);right:var(--sp-1);width:var(--star-w);
+  height:var(--star-w);line-height:var(--star-w);text-align:center;
+  font-size:calc(15px*var(--fsx));color:var(--ovl-tx);text-shadow:0 1px 4px rgba(0,0,0,.9);border-radius:var(--r-pill);
+  cursor:pointer;user-select:none;background:rgba(var(--ovl-rgb),.42);opacity:0;pointer-events:none;
+  transition:opacity var(--dur-fast),background var(--dur-fast);
+  display:flex;align-items:center;justify-content:center}
+/* text-shadow 只管文字、对 svg 无效 → 用 drop-shadow 把图标从缩略图上托起来（等效原来的字影） */
+.card .star .iico{width:calc(15px*var(--fsx));height:calc(15px*var(--fsx));
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.75))}
+.card:hover .star,.card .star.on{opacity:1;pointer-events:auto}
+.card .star.on{color:var(--gold)}
+.card .star:hover{background:rgba(var(--ovl-rgb),.72)}
+/* 星标旁的「收藏到分类」小箭头（悬停才出现，点它直接开分类菜单） */
+.card .starcat{position:absolute;top:var(--sp-2);right:calc(var(--sp-1) + var(--star-w) + var(--sp-1));
+  width:calc(17px*var(--fsx));height:calc(17px*var(--fsx));line-height:calc(17px*var(--fsx));text-align:center;
+  font-size:var(--fs-micro);color:var(--ovl-tx);border-radius:var(--r-pill);cursor:pointer;background:rgba(var(--ovl-rgb),.46);
+  opacity:0;pointer-events:none;transition:opacity var(--dur-fast);text-shadow:0 1px 3px rgba(0,0,0,.9);
+  display:flex;align-items:center;justify-content:center}
+.card .starcat .iico{width:calc(11px*var(--fsx));height:calc(11px*var(--fsx));
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.75))}
+.card:hover .starcat{opacity:1;pointer-events:auto}
+.card .starcat:hover{background:var(--ac);color:var(--on-ac);text-shadow:none}
+body.batch .card .starcat,
+body.batch .card .qacts,
+body.batch .card .star{display:none}
+.card .bsel{position:absolute;top:var(--sp-1);right:var(--sp-1);width:calc(24px*var(--fsx));
+  height:calc(24px*var(--fsx));border-radius:var(--r-sm);
+  background:rgba(var(--ovl-rgb),.55);border:2px solid rgba(255,255,255,.65);display:none;z-index:var(--z-sel);
+  align-items:center;justify-content:center;font-size:var(--fs-ui);font-weight:var(--fw-bold);color:var(--ovl-tx)}
+body.batch .card .bsel{display:flex}
+.card.sel{border-color:var(--ac);box-shadow:var(--ring-edge),var(--ring),inset 0 0 0 100px var(--ac-soft)}
+.card.sel .bsel{background:var(--ac);border-color:var(--ovl-tx);box-shadow:0 1px 6px rgba(0,0,0,.5)}
+.card img.err{background:var(--err-fill)}
+.card.dir{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-2);
+  aspect-ratio:1;background:linear-gradient(160deg,var(--dir-grad),var(--panel2));
+  border:1px solid var(--border);cursor:pointer}
+.card.dir:hover{border-color:var(--border2);transform:none}
+/* D1 · V32：卡片按住反馈。不用 box-shadow 遮罩（内含 <img>，遮罩会被图盖住），
+   改「回落 + 微缩」：悬停是上抬 1px，按住回到原位并缩到 .985 ⇒ 明确的「压下去」。
+   ⚠️ 必须写在这里而不是 base.css：`.card.dir:hover{transform:none}` / 列表视图的
+      `body.list-view #grid .card:hover` 与这里的 :active 规则**特异性相同**，靠文件顺序取胜
+      （gallery.css 排在 layout.css 之后）。时间轴组头 `#grid .card.tl-full:hover` 在
+      timeline.css（更靠后）⇒ 组头按下仍无位移，属已知不做的边缘项。 */
+.card:active,body.list-view #grid .card:active{transform:translateY(0) scale(.985)}
+.card.dir:active,body.list-view #grid .card.dir:active{transform:scale(.985)}
+.card.dir .fic{font-size:calc(40px*var(--fsx));line-height:var(--lh-none);opacity:.9;
+  display:flex;align-items:center;justify-content:center}
+/* 大字尺寸与预览页定稿一致（34px 网格 ≈ 原 40px 字符的视觉体量；列表视图另见 layout.css） */
+.card.dir .fic .iico{width:calc(34px*var(--fsx));height:calc(34px*var(--fsx))}
+.card.dir .dn{font-size:var(--fs-sm);color:var(--tx);max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card.dir .dc{font-size:var(--fs-meta);color:var(--tx3)}
+/* 空状态（V2.9.2 · U2）：原来只有一行灰字，现在是「图标 + 主文案 + 副文案 + 行动」四件套。
+   仍占满整行（grid-column:1/-1），并保持垂直居中留白。 */
+.empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:var(--sp-2);text-align:center;color:var(--tx3);
+  padding:calc(56px*var(--fsx)) var(--sp-4) calc(64px*var(--fsx))}
+.empty .em-ic{display:flex;align-items:center;justify-content:center;color:var(--tx3);opacity:.75}
+.empty .em-ic svg{width:calc(34px*var(--fsx));height:calc(34px*var(--fsx))}
+.empty .em-t{font-size:var(--fs-h2);font-weight:var(--fw-semi);color:var(--tx)}
+.empty .em-s{font-size:var(--fs-sm);color:var(--tx3);max-width:calc(440px*var(--fsx));line-height:var(--lh-loose)}
+.empty .em-act{margin-top:var(--sp-1);display:flex;gap:var(--sp-2);justify-content:center;flex-wrap:wrap}
+
+/* ---------- 批量栏（浮层，规范 6：明显阴影 + 覆盖在内容之上） ---------- */
+#batchBar{position:fixed;left:50%;bottom:calc(var(--bot-h) + var(--sp-3));transform:translateX(-50%);
+  z-index:var(--z-raise);display:none;background:var(--panel);border:1px solid var(--border2);
+  border-radius:var(--r-xl);padding:var(--sp-2) var(--sp-4);align-items:center;gap:var(--sp-2);
+  box-shadow:var(--sh-3);backdrop-filter:blur(var(--blur-lg))}
+#batchBar.on{display:flex}
+#batchBar .bn{font-size:var(--fs-ui);color:var(--tx);margin-right:var(--sp-1);
+  min-width:calc(70px*var(--fsx));text-align:center;font-variant-numeric:tabular-nums}
+#batchBar button{font-size:var(--fs-sm);padding:0 var(--sp-3);height:var(--h-ctl);min-height:var(--h-ctl)}
+
+/* ---------- Toast 分层（V12） ----------
+   四态各自配色条 + 图标：ok=成功 / info=提示（默认） / warn=需要注意（非错误） / err=失败。
+   失败类可挂「详情」：功能线的移动 / 重命名 / 再生成都会产生明确失败原因
+   （路径冲突、跨盘失败、节点定位失败），一行文案装不下 —— 这是与 F14 的同步点。
+   同屏最多 3 条；**同一文案在 2.5s 窗口内合并并显示 ×N**，避免连点刷屏。
+   图标为内联 SVG（ico() 生成），随 .tico 的 color 自动跟随状态色。
+   ⚠️ 底距走 `--toast-bottom`（由 app.js 的 syncToastLift() 按**遮挡物真实矩形**写入）：
+      toast 与 #batchBar / #vidBar 同为「底部居中」浮层，同屏时提示条会把操作条整条盖住
+      （2026-10-07 修，实测覆盖比 1.00 / 0.89）。变量未设置时回落到原底距
+      —— 即「无遮挡物」时行为与修复前逐像素一致。 */
+#toastStack{position:fixed;left:50%;bottom:var(--toast-bottom,calc(var(--bot-h) + var(--sp-4)));transform:translateX(-50%);z-index:var(--z-toast);
+  display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);
+  pointer-events:none;max-width:min(70vw,calc(720px*var(--fsx)))}
+#toastStack>div{display:flex;align-items:flex-start;gap:var(--sp-2);max-width:100%;
+  pointer-events:auto;background:var(--panel);border:1px solid var(--border2);border-left:3px solid var(--tx3);
+  border-radius:var(--r-md);padding:var(--sp-2) var(--sp-3);font-size:var(--fs-ui);color:var(--tx);
+  animation:tIn var(--dur-base) var(--ease-out);box-shadow:var(--sh-2)}
+#toastStack>div.ok{border-left-color:var(--ok)}
+#toastStack>div.err{border-left-color:var(--err)}
+#toastStack>div.info{border-left-color:var(--ac2)}
+#toastStack>div.warn{border-left-color:var(--warn)}
+#toastStack .tico{flex:none;display:flex;align-items:center;margin-top:calc(2px*var(--fsx));
+  color:var(--tx3)}
+#toastStack .tico svg{width:calc(15px*var(--fsx));height:calc(15px*var(--fsx))}
+#toastStack>div.ok .tico{color:var(--ok-tx)}
+#toastStack>div.err .tico{color:var(--err-tx)}
+#toastStack>div.info .tico{color:var(--ac2-tx)}
+#toastStack>div.warn .tico{color:var(--warn-tx)}
+/* 消息体：常态单行省略；带详情时可展开（.open 由「详情」按钮切换） */
+#toastStack .tmsg{flex:1 1 auto;min-width:0}
+#toastStack .tmsg>span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#toastStack .tdetail{display:none;margin-top:var(--sp-1);padding-top:var(--sp-1);
+  border-top:1px dashed var(--border2);font-family:var(--mono);font-size:var(--fs-meta);
+  color:var(--tx3);white-space:pre-wrap;word-break:break-all;
+  max-height:calc(140px*var(--fsx));overflow:auto}
+#toastStack>div.open .tdetail{display:block}
+#toastStack .tn,.tmore{flex:none;margin-top:calc(2px*var(--fsx));font-size:var(--fs-meta);
+  font-variant-numeric:tabular-nums;border-radius:var(--r-pill);padding:0 var(--sp-2);
+  color:var(--tx3);background:var(--panel3);border:1px solid var(--border)}
+#toastStack .tmore{cursor:pointer;font-family:inherit}
+#toastStack .tmore:hover{color:var(--tx);border-color:var(--border2)}
+#toastStack>div.out{opacity:0;transition:opacity var(--dur-base)}
+/* 带操作按钮的 toast（如「撤销」） */
+#toastStack .tact{flex:0 0 auto;background:var(--ac);color:var(--on-ac);border:none;border-radius:var(--r-sm);
+  font-size:var(--fs-sm);font-weight:var(--fw-semi);height:calc(26px*var(--fsx));min-height:calc(26px*var(--fsx));
+  padding:0 var(--sp-3);cursor:pointer}
+#toastStack .tact:hover{background:var(--ac2)}
+@keyframes tIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+
+/* ---------- V4 图标批次 3 · 筛选 chip 的清除键（原 ✕ 字符） ---------- */
+#filterChips .fchip .x{display:flex;align-items:center;justify-content:center}
+#filterChips .fchip .x .iico{width:calc(11px*var(--fsx));height:calc(11px*var(--fsx))}
+
+/* V15 行内骨架：列表视图「尺寸 / 模型 / 采样器」在索引就绪前显示为骨架条，
+   靠 .skl::after 的同一支 skel 微光动画（reduced-motion 下由 base.css 显式关停）。 */
+.skl{display:inline-block;width:calc(44px*var(--fsx));height:calc(9px*var(--fsx));
+  border-radius:var(--r-sm);background:var(--panel2);position:relative;overflow:hidden;
+  vertical-align:middle}
+.skl::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,var(--hov),transparent);
+  animation:skel var(--dur-loop) infinite}
+
+/* V14：删除后卡片淡出并让位（用 transition，不用 keyframes —— 动画由 .removing 类驱动） */
+.card.removing{opacity:0;transform:scale(.97);pointer-events:none;
+  transition:opacity var(--dur-base) var(--ease-out),transform var(--dur-base) var(--ease-out)}
+
+/* V14：收藏星标弹一下（只动 transform，不影响布局与相邻元素） */
+@keyframes favPop{0%{transform:scale(1)}45%{transform:scale(1.3)}100%{transform:scale(1)}}
+.card .star.pop{animation:favPop var(--dur-base) var(--ease-out)}
+
+/* V28：切视图时的一次淡入 + 微位移 */
+@keyframes viewEnter{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+#gridwrap.view-enter #grid{animation:viewEnter var(--dur-base) var(--ease-out)}
+
+/* V4 批次 4：空状态图标收编进 ICO（.iico 描边 1.5，比原来的 1.2 稍实一点，尺寸不变） */
+.empty .em-ic .iico{width:calc(34px*var(--fsx));height:calc(34px*var(--fsx))}

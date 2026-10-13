@@ -1,0 +1,32 @@
+# Python environments and caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Build output and installed frontend dependencies
+build/
+dist/
+target/
+node_modules/
+
+# Runtime state, user libraries, caches and models
+cmv-data/
+hotfix/
+output/
+downloads/
+portable.flag
+storage-state.json
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.log
+*.onnx
+*.safetensors
+*.pt
+*.pth
+.env
+.env.*

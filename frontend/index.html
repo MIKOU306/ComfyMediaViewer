@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ComfyUI Media Viewer V3.0.0</title>
+<link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/gallery.css">
+  <link rel="stylesheet" href="css/viewer.css">
+  <link rel="stylesheet" href="css/dialogs.css">
+  <link rel="stylesheet" href="css/tags.css">
+  <link rel="stylesheet" href="css/timeline.css">
+  <link rel="stylesheet" href="css/nsfw.css">
+  <link rel="stylesheet" href="css/settings.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/classic-additions.css">
+  <link rel="stylesheet" href="css/classic-library.css">
+  <link rel="stylesheet" href="css/classic-data.css">
+
+</head>
+<body class="standard">
+<!-- Tauri 桌面模式：自定义标题栏（融入 UI 的暗色顶栏 + 三个窗口按钮）。仅在 Tauri 内显示，浏览器里隐藏。 -->
+<div id="tauri-bar" hidden>
+  <div class="tb-brand"><span class="tb-cube">CF</span><span class="tb-name">MediaViewer<span class="tb-ver">V3.0.0</span></span></div>
+  <div class="tb-spacer"></div>
+  <div class="tb-ctrls">
+    <button class="tb-btn tb-min" data-act="minimize" data-tip="最小化" aria-label="最小化">
+      <svg viewBox="0 0 10 10" aria-hidden="true"><rect x="0" y="4.2" width="10" height="1.4"/></svg>
+    </button>
+    <button class="tb-btn tb-max" data-act="maximize" data-tip="最大化" aria-label="最大化">
+      <svg viewBox="0 0 10 10" aria-hidden="true"><rect x="0.7" y="0.7" width="8.6" height="8.6" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+    </button>
+    <button class="tb-btn tb-close" data-act="close" data-tip="关闭" aria-label="关闭">
+      <svg viewBox="0 0 10 10" aria-hidden="true">
+        <path d="M0,0 L10,10 M10,0 L0,10" stroke="currentColor" stroke-width="1.3"/>
+      </svg>
+    </button>
+  </div>
+</div>
+<div id="app">
+<header id="top">
+  <button id="btnUp" class="tbtn" data-tip="返回上级"><span class="ic"></span></button>
+  <div id="crumbs"></div>
+  <div id="qbox">
+    <!-- 2026-10-07（主人令）：搜索范围**默认「提示词」** —— CMV 的核心价值就是按提示词找图，
+         原名模式会让新用户第一眼以为这只是个「看文件名」的工具。
+         「提示词」一并提到第一位；默认选中用 `selected` **显式声明**，不依赖「第一个 option」这个隐式规则
+         （后人调整 option 顺序时不会再悄悄改掉默认值）。
+         ⚠️ 初始 placeholder 必须与 nav.js:616 的 prompt 分支文案**逐字一致**（真值同源）——
+            否则会自相矛盾：框里写着「搜索文件名」，实际在搜提示词。
+         文件名搜索并未消失：手动切回「文件名」，或直接用 `name:关键字` 语法（两种模式下都生效）。 -->
+    <select id="qmode" title="搜索范围">
+      <option value="prompt" selected>提示词</option><option value="name">文件名</option>
+    </select>
+    <span class="qwrap">
+      <span class="qico" aria-hidden="true"></span>
+      <input id="q" type="search" placeholder="搜索提示词/模型/LoRA…（支持 tag: fav: type: 等语法）"
+        data-tip="搜索语法：tag:风景  model:SDXL  sampler:DPM++  size:1024x1024  fav:true  type:image  after:2026-09-01  before:2026-09-09  name:关键字  wf:full"
+        title="搜索语法：tag:风景  model:SDXL  sampler:DPM++  size:1024x1024  fav:true  type:image  after:2026-09-01  before:2026-09-09  name:关键字  wf:full">
+    </span>
+  </div>
+  <div class="tspace"></div>
+  <!-- 单图查看（V2.10.7）：看别人发来的原图（提示词 / 配方），不必先把图拷进库目录。
+       排在右侧功能组的**第一位** —— 这是「看图」动线的入口，站最前才对。 -->
+  <button id="btnOpenImg" class="tbtn" data-tip="打开图片：查看单张原图的提示词与配方（不进库）"><span class="ic"></span></button>
+  <!-- 手动刷新（V2.10.7）：紧接「打开图片」、在「回收站」之前。
+       为什么需要它 —— 自动刷新是 5 秒轮询，且带一组「防打扰」暂停条件（大图 / 对比 / 批量 /
+       提示词搜索中 / 参数筛选中 / 页面隐藏 / 在设置里被关掉），生成完图想立刻看到就没有出口。
+       点它 = 清服务端目录指纹与统计节流 + 重载列表（与设置页「强制重扫当前目录」同一份实现）。 -->
+  <button id="btnRefresh" class="tbtn" data-tip="刷新：立即重扫当前目录（快捷键 R）"><span class="ic"></span></button>
+  <!-- V2 入口归位：回收站是「删除后的必经回路」（每次删完都会去看），频次远高于查重与统计，
+       所以升为顶栏独立入口，并用角标把「里面有东西」直接摆在脸上。
+       H5（2026-10-06）：顶栏「工具▾」下拉已拆掉 —— 查重与出图统计都是「偶尔用一次、
+       一用就要跑一遍全库扫描」的操作，不值得在顶栏常驻一个下拉触发器；
+       两者收进设置面板「数据」页的「分析工具」区。顶栏 .tbtn 按钮 6 → 5。 -->
+  <button id="btnTrash" class="tbtn" data-tip="应用内回收站：还原或彻底删除"><span class="ic"></span><span class="tbadge" id="trashBadge" hidden></span></button>
+  <button id="btnSettings" class="tbtn" data-tip="设置（外观 / 行为 / 数据 / 关于）"><span class="ic"></span></button>
+  <span id="count"></span>
+</header>
+<!-- 单图查看（V2.10.7）：隐藏的文件选择器。这一版只做按钮入口 ——
+     拖放要改 Tauri 壳的 dragDropEnabled（Windows 上它劫持 OLE 拖放，WebView 收不到
+     HTML5 的 drop 事件），粘贴在桌面壳里也拿不到跨应用剪贴板图像，两者都留待下一版。 -->
+<input type="file" id="soloFile" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" hidden>
+<!-- 隐藏宿主（H5 · 2026-10-06 起仅由设置面板「数据」页触发）：按钮不出现在界面上。
+     查重 / 出图统计的**真正实现**（bigDialog 逻辑）仍绑在这两个 id 上，
+     设置页的「分析工具」按钮只是转发一次 click —— 所以这里保留、不搬家。 -->
+<div id="moreBox" hidden>
+  <button id="btnDupes" class="tbtn" data-tip="扫描当前目录下的相似/重复图片"><span class="ic"></span>查重</button>
+  <button id="btnStats" class="tbtn" data-tip="出图统计：模型/采样器/尺寸/每日产出"><span class="ic"></span>出图统计</button>
+</div>
+
+<div id="navBack"></div>
+<div id="main">
+  <aside id="left">
+    <div id="sideBrand"><span class="cube">CF</span><span class="nm">MediaViewer<span class="ver">V3.0.0</span></span></div>
+    <div id="cmvLibraryTools">
+      <button class="sm" type="button" data-cmv-library-tab="workflows">工作流库</button>
+      <button class="sm" type="button" data-cmv-library-tab="models">模型目录</button>
+    </div>
+    <div class="lsec grp-first grp-lead" id="posSec" data-grp="nav">
+      <h4><span>位置</span><span class="secar"></span></h4>
+      <!-- A 方案（2026-10-07 · 主人令）：位置区去重。
+           原来这里有**两处都写着根目录名**（output）—— 上面 `#sideNav` 的根行、
+           下面 `#rootBtn` 的按钮，加上顶栏面包屑共三处 ⇒ 主人反馈「一排好几个 output，
+           我都搞不清具体干什么的」。现在分工明确：
+             · `#sideNav` 只在**进入子目录后**渲染路径层级（窄屏下 `#crumbs` 被
+               responsive.css 隐藏时，它是唯一的路径导航，所以**不能整个删掉**）；
+               处于顶层（cur===root）时不再画那一行。
+             · 根目录名 + 总数统一由 `#rootBtn` 承担（右上 `.rs-hint` 显示「N 项」），
+               点它仍是**切换根目录**的唯一入口。
+             · 「根目录」子标题同时删掉 —— 该区已在「位置」之下、又只剩这一个控件，
+               再挂一行小标题只是重复占位。
+           ⇒ 顶层时左栏只剩 1 处 output（#rootBtn）；全屏 2 处（+ 顶栏面包屑，职责不同）。 -->
+      <div id="sideNav"></div>
+      <div class="lbox lbox-in">
+        <div id="rootSel" class="rs-wrap" data-tip="切换根目录：常用目录 + 选择文件夹（选择即保存）">
+          <button id="rootBtn" class="rs-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span class="rs-ico"></span>
+            <span class="rs-txt"><span class="rs-name">—</span><span class="rs-suf"></span></span>
+            <span class="rs-hint"></span>
+            <span class="rs-car"></span>
+          </button>
+        </div>
+        <label id="recwrap"><input type="checkbox" id="rec" checked>含子文件夹</label>
+      </div>
+    </div>
+    <div class="lsec" id="libSec" data-grp="nav">
+      <h4><span>库</span><span class="secar"></span></h4>
+      <div id="libNav"></div>
+    </div>
+    <div class="lsec" id="wfSec" data-grp="nav">
+      <h4><span>生成参数</span><span class="secar"></span></h4>
+      <!-- H1（2026-10-07）：本区由「工作流类型」更名为**「生成参数」**，并按四个子维度
+           加子标题「类型 / 模型 / 采样器 / 尺寸」。**零物理搬迁** ——
+           H4（2026-10-06）已把 模型 / 采样器 / 分辨率 三个下拉从「筛选」分区迁进本区，
+           本次只做「更名 + 分组 + 排序」（排序由 尺寸/模型/采样器 改为 模型/采样器/尺寸，
+           与子标题一致，也是「先选模型、再选采样器、最后看尺寸」的自然细化顺序）。
+           四个 id（#wfNav 与三个 select）一律不变 ⇒ extras.js / filters.js 零改动
+           （它们只按 id 取值，与 DOM 顺序无关）。
+           ⚠️ 分区 id **#wfSec 有意保留不改名**：它是折叠记忆的键（app.js 用 sec.id 作
+              mv.sidecol 的 key），改名会重置老用户该分区的折叠状态。
+           子标题复用既有 .subh（「位置」区的「根目录」同款，带尾部发丝线）。 -->
+      <div class="subh">类型</div>
+      <div id="wfNav"></div>
+      <div class="lbox lbox-in">
+        <!-- H2（2026-10-07）：本下拉**保留**（它只在「库 → 工作流」视图里出现，是可用的
+             上下文控件），但已**不再承载状态** —— 值由 syncFiltersUI() 从 `S.filters.wfClass`
+             推下来，onchange 只回写状态（setWfClassFilter）。
+             ⇒ 「幽灵控件」的定义是「**状态寄存在隐藏 DOM 里**」，本控件已不再是幽灵。 -->
+        <select id="wfClass" data-tip="按生成参数筛选（点「有元数据」后出现）" title="元数据分类" style="display:none">
+          <option value="any">有元数据（全部）</option>
+          <option value="full">有完整工作流</option>
+          <option value="prompt">只有提示词</option>
+          <option value="none">无生成参数</option>
+        </select>
+        <div class="subh">模型</div>
+        <select id="fModel" data-tip="按模型筛选（来自提示词索引）" title="模型"><option value="">模型（全部）</option></select>
+        <div class="subh">采样器</div>
+        <select id="fSampler" data-tip="按采样器筛选（来自提示词索引）" title="采样器"><option value="">采样器（全部）</option></select>
+        <div class="subh">尺寸</div>
+        <select id="fDim" data-tip="按出图尺寸筛选（来自提示词索引）" title="分辨率">
+          <option value="">分辨率（全部）</option>
+        </select>
+      </div>
+    </div>
+    <div class="lsec grp-first" id="favSec" data-grp="org">
+      <h4><span>收藏</span><span class="secar"></span></h4>
+      <div id="favNav"></div>
+      <!-- H2（2026-10-07）幽灵控件清零：这里原有一个 `<select id="favcat" style="display:none">`
+           作「当前收藏分类」的状态载体（H3 · 2026-10-06 曾把它从「筛选」分区搬进本分区）。
+           它**从不显示**，已从 DOM 删除，分类状态改由 `S.filters.favcat` 承载
+           （写入口 setFavCatFilter；左栏高亮由 syncFavNavSel 读状态）。
+           收藏分类的界面入口仍然只有上面的 `#favNav` 分类列表。 -->
+    </div>
+    <div class="lsec" id="tagSec" data-grp="org">
+      <h4><span>标签</span><button id="tagMode" class="ghost sm" data-tip="多标签匹配方式：同时满足(AND) / 任一满足(OR)">AND</button><button id="tagManage" class="ghost sm" data-tip="管理标签"></button><span class="secar"></span></h4>
+      <div id="tagNav"></div>
+    </div>
+    <div class="lsec" id="fmtSec" data-grp="org">
+      <h4><span>格式</span><span class="secar"></span></h4>
+      <div id="fmtNav"></div>
+    </div>
+    <!-- 「其他」分区（H4 · 2026-10-06 由「筛选」更名 + 瘦身而来）：
+         只留「时间范围 + 标记状态」两项杂项筛选 —— 模型 / 采样器 / 分辨率 已迁到上面的
+         「生成参数」区（同属生成参数维度，H1 · 2026-10-07 已把该区更名为「生成参数」）。
+         ⚠️ id 有意**保留 #filtSec 不改名**：
+           ① 它是折叠记忆的键（app.js 用 sec.id 作 mv.sidecol 的 key），改名会重置老用户折叠状态；
+           ② tests/u7_check.py 的 SEC_ORDER / SEC_GRP 仍以它为锚点（分区序列）——
+              改名会让门禁查不到该分区。
+         H2（2026-10-07）已把 4 个幽灵控件的**状态**全部外迁到 `S.filters`：本区只剩
+         `#dateRange`（真控件）与 `#markState`（只在「库 → 已标记」视图里出现的
+         上下文控件，值由 syncFiltersUI 推下来）。 -->
+    <div class="lsec" id="filtSec" data-grp="org">
+      <h4><span>其他</span><span class="secar"></span></h4>
+      <div class="lbox">
+        <select id="dateRange" data-tip="按修改时间只看最近的图" title="时间范围">
+          <option value="all">全部时间</option>
+          <option value="today">今天</option>
+          <option value="week">本周</option>
+          <option value="month">本月</option>
+        </select>
+        <!-- H2（2026-10-07）：与上方 `#wfClass` 同理 —— 本下拉**保留**（只在「库 → 已标记」
+             视图里出现，是可用的上下文控件），但值由 `S.filters.markState` 推下来，
+             onchange 只回写状态（setMarkStateFilter）。已不再是「幽灵控件」。 -->
+        <select id="markState" data-tip="按标记状态过滤" title="按标记状态过滤" style="display:none">
+          <option value="*">全部标记</option>
+          <option value="review">待处理</option>
+          <option value="publish">待发布</option>
+          <option value="compare">待比较</option>
+          <option value="delete">待删除</option>
+        </select>
+      </div>
+    </div>
+  </aside>
+
+  <button id="leftTgl" data-tip="收起/展开侧栏"></button>
+
+  <main id="content">
+    <!-- 内容区工具条：只放「看的方式」（视图 / 排序 / 批量）。
+         筛选与导航都在左栏（位置 / 库 / 生成参数 / 收藏 / 标签 / 格式 / 其他），这里不再重复。 -->
+    <div id="gridBar">
+      <span class="glbl">视图</span>
+      <div class="seg" id="viewSeg" role="group" aria-label="视图切换">
+        <button id="viewGrid" class="segbtn" data-v="grid" data-tip="网格视图" aria-pressed="true"><span class="ic"></span></button>
+        <button id="viewList" class="segbtn" data-v="list" data-tip="列表视图" aria-pressed="false"><span class="ic"></span></button>
+        <button id="viewTime" class="segbtn" data-v="time" data-tip="时间轴视图：按日期分组，一键回到某一天 (T)" aria-pressed="false"><span class="ic"></span></button>
+      </div>
+      <span class="glbl">排序</span>
+      <select id="sort" data-tip="排序方式" title="排序方式">
+        <option value="mtime_desc">最新优先</option>
+        <option value="mtime_asc">最早优先</option>
+        <option value="name_asc">名称 A→Z</option>
+        <option value="name_desc">名称 Z→A</option>
+        <option value="size_desc">体积 大→小</option>
+        <option value="size_asc">体积 小→大</option>
+      </select>
+      <!-- H2（2026-10-07）幽灵控件清零：这里原有一个 `<select id="filter" hidden>`
+           （全部类型 / 图片 / 视频 / ★ 收藏）—— 它**从不显示**，只当筛选状态的存储。
+           已从 DOM 删除，状态改由 `S.filters.type` 承载（写入口 setTypeFilter）。
+           类型筛选的界面入口仍然只有左栏「库」分区（全部 / 图片 / 视频 / 工作流 …）。 -->
+      <div class="grow"></div>
+      <!-- 内容安全（V2.11.0）：三态而不是开关。
+           纯隐藏会让人以为图丢了，纯显示等于没做这个功能 —— 中间的「模糊」既能看到
+           有这张、又不会误看，所以默认停在这儿。快捷键 N 循环。
+           左侧「敏感内容」标签带红眼睛：和被遮挡卡片左上角的眼睛同一个颜色语义，
+           用户扫一眼就知道这排按钮管的是那些被挡住的图。
+           引擎不可用时整体置灰并在提示里说明原因，不隐藏 —— 用户需要知道有这个东西、
+           以及为什么用不了（缺库还是缺模型，提示语分得清）。 -->
+      <div class="nsfw-ctl" id="nsfwCtl">
+        <div class="seg seg-nsfw" id="nsfwSeg" role="group" aria-label="敏感内容显示方式">
+          <span class="nsfw-lbl" data-tip="敏感内容显示方式（NSFW）">
+            <span class="ic" id="nsfwLblIco" aria-hidden="true"></span
+            ><span class="nsfw-lbl-txt">敏感内容</span>
+          </span>
+          <button class="segbtn" data-n="hide" data-tip="隐藏：NSFW 图从列表里剔除" aria-pressed="false">隐藏</button>
+          <button class="segbtn" data-n="blur" data-tip="模糊：NSFW 图显示为毛玻璃，可用左上角眼睛单独查看（默认）" aria-pressed="true">模糊</button>
+          <button class="segbtn" data-n="show" data-tip="显示：不做任何处理" aria-pressed="false">显示</button>
+        </div>
+      </div>
+      <div class="seg" id="flowSeg" role="group" aria-label="展示方式">
+        <button id="flowPage" class="segbtn" data-flow="page" data-tip="分页展示：底栏翻页，每页 20/40/60/100 张" aria-pressed="true"><span class="ic"></span></button>
+        <button id="flowInf" class="segbtn" data-flow="flow" data-tip="无限瀑布流：向下滚动自动续载，不分页" aria-pressed="false"><span class="ic"></span></button>
+      </div>
+      <button id="btnBatch" class="gbtn" data-tip="批量选择：单击卡片勾选 · Shift 连选 · Ctrl 点击可直接进入"><span class="ic"></span></button>
+    </div>
+    <!-- 时间轴子工具条：只在时间轴视图出现（粒度 / 回到今天 / 日期索引） -->
+    <div id="tlBar" hidden>
+      <span class="glbl">粒度</span>
+      <div class="seg" id="tlGrain" role="group" aria-label="时间轴粒度">
+        <button class="segbtn" data-g="hour" data-tip="按小时分组" aria-pressed="false">时</button>
+        <button class="segbtn" data-g="day" data-tip="按天分组（默认）" aria-pressed="true">日</button>
+        <button class="segbtn" data-g="week" data-tip="按周分组（周一起算）" aria-pressed="false">周</button>
+        <button class="segbtn" data-g="month" data-tip="按月分组" aria-pressed="false">月</button>
+        <button class="segbtn" data-g="batch" data-tip="按生成批次分组：同一次 Queue 出的图聚在一起，并标出该批耗时" aria-pressed="false">批</button>
+      </div>
+      <span class="grow"></span>
+      <span class="tlhint">[ / ] 上一组 · 下一组 · T 切换视图</span>
+      <button id="tlToday" class="sm" data-tip="跳到今天那一组">回到今天</button>
+      <button id="tlIdxTgl" class="sm" data-tip="显示/隐藏日期索引">索引</button>
+    </div>
+    <div id="filterChips" hidden></div>
+    <div id="stageWrap">
+        <div id="cmvLoad" hidden aria-label="目录加载进度">
+          <div class="cmv-load-card">
+            <div id="cmvLoadText" role="status"></div>
+            <progress id="cmvLoadBar" max="1" aria-label="目录扫描进度"></progress>
+            <div class="cmv-load-info"><span id="cmvLoadCount"></span><span id="cmvLoadElapsed"></span></div>
+          </div>
+        </div>
+      <div id="gridwrap">
+        <!-- 列表视图表头：与数据行共用同一组列宽类，保证左右对齐 -->
+        <!-- V10（D3）：data-col = 列显隐的稳定锚点（数据行的 lv-cell 用同一个 col 名）。
+             表头右键 = 列显隐菜单，每列右缘可拖拽调宽（columns.js）。 -->
+        <div id="listHead" hidden data-tip="右键：选择显示哪些列 · 拖动列边缘：调整列宽">
+          <span class="lh lh-thumb" data-col="thumb"></span>
+          <span class="lh lh-name"  data-col="name">文件名</span>
+          <span class="lh lh-type"  data-col="type">类型</span>
+          <span class="lh lh-dim"   data-col="dim">尺寸</span>
+          <span class="lh lh-size"  data-col="size">大小</span>
+          <span class="lh lh-time"  data-col="time">修改时间</span>
+          <span class="lh lh-model" data-col="model">模型</span>
+          <span class="lh lh-sampler" data-col="sampler">采样器</span>
+          <span class="lh lh-fav"   data-col="fav">收藏</span>
+          <span class="lh lh-tags"  data-col="tags">标签</span>
+          <span class="lh lh-acts"  data-col="acts">操作</span>
+        </div>
+        <div id="grid" role="list"></div>
+      </div>
+      <!-- 日期索引栏：只列当前结果集里真实存在的日期 + 张数，点一下跳过去 -->
+      <aside id="tlIndex" hidden><div class="ti-hd">日期索引</div><div class="ti-list" id="tlIdxList"></div></aside>
+    </div>
+    <button id="toTop" data-tip="回到顶部" hidden></button>
+  </main>
+</div>
+
+<!-- V3 底栏状态中枢：左侧从静态「已就绪」改为实时状态位 ——
+       索引进度 → 缩略图缓存状态 → 新图到达提示（F1 的宿主），
+       右端是它的行动按钮（如「查看」新图）。右侧分页区不动。 -->
+<footer id="bot">
+  <span id="botState" class="idle" data-tip="后台状态">
+    <span class="dot" id="botDot"></span><span id="botMsg">已就绪</span>
+  </span>
+  <button id="botAct" class="bot-act" hidden type="button"></button>
+  <span style="flex:1"></span>
+  <div id="pager"></div>
+  <span class="pgjump" data-tip="输入页码后按回车直接跳转"><span class="pglbl">跳至</span><input id="pgJump" type="number" min="1" value="1" aria-label="跳转到指定页"> / <span id="pgTotal">–</span> 页</span>
+  <select id="perPage" title="每页显示数量" aria-label="每页显示数量">
+    <option value="20">20 / 页</option>
+    <option value="40">40 / 页</option>
+    <option value="60">60 / 页</option>
+    <option value="100">100 / 页</option>
+  </select>
+  <span id="hintTrig" tabindex="0" role="button" aria-label="快捷键速查（?）" data-tip="快捷键说明（?）"></span>
+</footer>
+</div>
+
+<!-- ============ 设置面板（V1）============
+     原先「外观与操作」整块塞在左栏底部 —— 8 个分区里它一个就装了 7 个控件，
+     而且和「去哪儿看 / 看哪些」混在同一条滚动动线上（前者高频变化、后者配一次就不动）。
+     现在移进抽屉，按 外观 / 行为 / 数据 / 关于 四页签归类：
+       ① 左栏瘦身成 7 个纯浏览分区；② 今后任何新设置都有地方放，左栏不再变长。
+     控件 id 全部保持不变 —— 既有 JS 按 id 绑定，搬家不动绑定。 -->
+<div id="setMask" hidden>
+  <section id="setPanel" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+    <header class="set-hd">
+      <b id="setTitle">设置</b>
+      <span class="set-hint" id="setVer"></span>
+      <div class="grow"></div>
+      <!-- 这里刻意不放关闭键：桌面壳的三个窗口按钮悬浮在窗口右上角，
+           抽屉自带的 ✕ 会与它们重叠。关闭改为「点遮罩空白处」或 Esc（见 js/settings.js）。 -->
+    </header>
+    <nav class="set-tabs" role="tablist" aria-label="设置分类">
+      <button id="tabLook" class="set-tab on" type="button" data-tab="look" role="tab" aria-selected="true" aria-controls="pageLook">外观</button>
+      <button id="tabBehave" class="set-tab" type="button" data-tab="behave" role="tab" aria-selected="false" aria-controls="pageBehave">行为</button>
+      <button id="tabData" class="set-tab" type="button" data-tab="data" role="tab" aria-selected="false" aria-controls="pageData">数据</button>
+      <button id="tabNsfw" class="set-tab" type="button" data-tab="nsfw" role="tab" aria-selected="false" aria-controls="pageNsfw">内容</button>
+      <button id="tabAbout" class="set-tab" type="button" data-tab="about" role="tab" aria-selected="false" aria-controls="pageAbout">关于</button>
+    </nav>
+    <div class="set-body">
+
+      <div id="pageLook" class="set-page on" data-page="look" role="tabpanel" aria-labelledby="tabLook">
+        <section class="set-grp">
+          <div class="set-gl">主题</div>
+          <select id="themeSel" data-tip="配色主题（侧栏固定深色；大图页始终深色）" title="配色主题">
+            <option value="light">亮色</option>
+            <option value="dark">深色</option>
+            <option value="auto">跟随系统</option>
+          </select>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">密度档位<span class="set-gd">一键切到常用值，下方滑块仍可微调</span></div>
+          <div class="seg seg-wide" id="densPreset" role="group" aria-label="密度档位">
+            <button class="segbtn" type="button" data-d="140" data-tip="紧凑：一屏看更多">紧凑</button>
+            <button class="segbtn" type="button" data-d="200" data-tip="舒适：默认">舒适</button>
+            <button class="segbtn" type="button" data-d="250" data-tip="宽松：只看大图">宽松</button>
+          </div>
+          <div class="densWrap">
+            <div class="dhead"><span class="dlabel">卡片大小</span><span class="dval" id="densVal">200</span></div>
+            <input type="range" id="densRange" min="110" max="260" step="5" value="200" title="网格卡片大小（小=紧凑 ⇄ 大=宽松；默认 200px）" aria-label="卡片大小">
+            <div class="dtick"><span>紧凑</span><span>宽松</span></div>
+          </div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">字体大小</div>
+          <div class="densWrap">
+            <div class="dhead"><span class="dlabel">整页缩放</span><span class="dval" id="fsVal">100%</span></div>
+            <input type="range" id="fsRange" min="85" max="150" step="5" value="100" title="界面字体大小（100% = 默认；拖动松手后生效，键盘方向键即时生效）" aria-label="字体大小">
+            <div class="dtick"><span>小</span><span>大</span></div>
+          </div>
+          <div class="set-gh">放大字号时，按钮与输入框会一起变大。</div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">缩略图</div>
+          <button id="fit" class="sm set-wide" data-tip="缩略图裁切/适应：适应=完整显示整张图（默认），裁切=铺满卡片">缩略图：适应</button>
+        </section>
+      </div>
+
+      <div id="pageBehave" class="set-page" data-page="behave" role="tabpanel" aria-labelledby="tabBehave">
+        <section class="set-grp">
+          <div class="set-gl">删除去向</div>
+          <select id="delModeSel" data-tip="删除文件时去哪里：应用内回收站=在顶栏「回收站」还原；Windows 回收站=与系统删除一致，在资源管理器里还原" title="删除去向">
+            <option value="app">删到：应用内回收站</option>
+            <option value="system">删到：Windows 回收站</option>
+          </select>
+        </section>
+        <!-- P1-3：回收站自动清理此前是写死的 30 天、启动时静默永久删除，用户无从察觉也无从关闭。
+             做成可查可配可关（0=关闭），真值来自 /api/sysinfo，改后写 /api/prefs。 -->
+        <section class="set-grp">
+          <div class="set-gl">回收站自动清理<span class="set-gd">超龄条目会被彻底删除</span></div>
+          <label class="set-kv" for="trashKeepDays">
+            <span>保留天数</span>
+            <input id="trashKeepDays" type="number" min="0" max="3650" step="1" inputmode="numeric"
+                   data-tip="超过这个天数的回收站条目会在程序启动时被自动彻底删除（不可恢复）。填 0 = 关闭自动清理，什么都不删。"
+                   style="width:calc(78px*var(--fsx))">
+          </label>
+          <div class="set-gh" id="trashKeepHint"></div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">下载保存位置</div>
+          <div class="set-ctl-row">
+            <input id="dlDirInp" type="text" style="flex:1 1 auto;min-width:0" placeholder="留空 = 浏览器默认下载目录" aria-label="下载保存位置">
+            <button id="dlDirSave" class="sm" type="button" data-tip="设置后，大图与卡片上的「下载」会直接保存到这个目录（桌面端与网页版行为一致）；留空恢复浏览器的下载行为">保存</button>
+          </div>
+          <div class="set-gh">设置后点「下载」直接落盘到这个目录，并提示完整保存路径（同目录重名自动加 _1/_2）。</div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">目录变化</div>
+          <button id="btnAR" class="sm set-wide" data-tip="自动检测目录变化"><span class="ic"></span>自动刷新</button>
+          <div class="set-gh">开启后目录里有新图会自动刷新；大图 / 对比 / 搜索中不会打扰。</div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">程序</div>
+          <button id="btnRestart" class="sm set-wide" data-tip="重新启动程序（索引异常或更新后可用）"><span class="ic"></span>重启程序</button>
+        </section>
+      </div>
+
+      <!-- F26 索引与缓存治理：进度 + 占用 + 三个出口。
+           原先索引构建期前端**没有任何反馈**（只能干等或重启），这里与底栏状态位（V3）
+           共用同一份真值（/api/sysinfo 的 index / scan 块），不各算各的。 -->
+      <div id="pageData" class="set-page" data-page="data" role="tabpanel" aria-labelledby="tabData">
+        <section class="set-grp">
+          <div class="set-gl">数据目录<span class="set-gd">设置 / 收藏 / 标签 / 索引 / 缩略图缓存都在这里</span></div>
+          <div class="set-kv"><code id="setDataDir">—</code><button id="setOpenDir" class="sm" type="button">打开</button></div>
+          <div class="seg seg-wide" id="ddMode" role="group" aria-label="数据目录位置">
+            <button class="segbtn" type="button" data-m="user" data-tip="放在系统盘的用户配置里：%LOCALAPPDATA%\ComfyMediaViewer。换程序版本、挪程序位置都不受影响；重装系统或换电脑会丢">用户目录</button>
+            <button class="segbtn" type="button" data-m="portable" data-tip="放在程序目录下的 cmv-data\：整个文件夹拷到 U 盘 / 别的电脑就能带着走；程序文件夹被删或挪走，数据也跟着走">程序目录（便携）</button>
+          </div>
+          <div class="set-gh" id="ddHint"></div>
+          <!-- B1-3：数据目录写不进去时的红字告警（默认隐藏，由 settings.js 按
+               /api/sysinfo 的 data_write 现算）。便携模式指向只读 U 盘 / 外接盘掉线时，
+               设置 / 收藏 / 标签的修改会在重启后静默丢失 —— 必须说出来。 -->
+          <div class="set-gh data-warn" id="ddWarn" hidden></div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">索引进度<span class="set-gd">提示词搜索与「有元数据」筛选依赖它</span></div>
+          <div class="set-prog" id="setIdxProg">
+            <div class="set-track"><i class="set-fill" id="setIdxFill"></i></div>
+            <div class="set-pline"><span id="setIdxState">尚未建立索引</span><b id="setIdxNum">0 / 0</b></div>
+          </div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">占用</div>
+          <div class="set-rows" id="setRows"><div class="set-row"><span>统计中…</span><b></b></div></div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">分析工具<span class="set-gd">按需打开，不在界面上常驻</span></div>
+          <div class="set-btns">
+            <button id="setDupes" class="sm set-icb" type="button" data-tip="按感知哈希扫描当前目录下的相似 / 重复图片（缩放、轻微后期都不影响判断）"><span class="ic"></span>重复图片检测</button>
+            <button id="setStats" class="sm set-icb" type="button" data-tip="出图统计：模型 / 采样器 / 尺寸 / 每日产出（基于提示词索引）"><span class="ic"></span>出图统计</button>
+          </div>
+          <div class="set-gh">两项都会跑一遍全库扫描，耗时较长。点开会先关掉设置面板，结果在弹窗里单独看。</div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">维护</div>
+          <div class="set-btns">
+            <button id="setReindex" class="sm" type="button" data-tip="丢弃提示词索引缓存并重新扫描当前根目录（不动原图，代价大）">重建索引</button>
+            <button id="setRescan" class="sm" type="button" data-tip="忽略已有缓存，立刻重扫当前目录（不动原图、不丢索引，代价小）">强制重扫当前目录</button>
+            <button id="setClearThumb" class="sm" type="button" data-tip="删除缩略图缓存（不动原图，下次浏览会重新生成）">清除缩略图缓存</button>
+            <button id="setClearSolo" class="sm" type="button" data-tip="删除「打开图片」时复制进来的临时副本（不动原图、不动库内文件）">清除单图暂存</button>
+            <button class="sm" type="button" data-cmvd-open>资料备份、导入与搬迁</button>
+          </div>
+          <div class="set-gh" id="setDataHint"></div>
+        </section>
+      </div>
+
+      <div id="pageNsfw" class="set-page" data-page="nsfw" role="tabpanel" aria-labelledby="tabNsfw">
+        <section class="set-grp">
+          <div class="set-gl">检测引擎<span class="set-gd">全本地推理，图片不出这台机器</span></div>
+          <div class="set-rows">
+            <div class="set-row"><span>状态</span><b id="nsfwStateRow">—</b></div>
+            <div class="set-row"><span>已识别</span><b id="nsfwCountRow">—</b></div>
+            <div class="set-row"><span>人工纠正</span><b id="nsfwManualRow">0</b></div>
+          </div>
+          <div class="set-gh" id="nsfwHint"></div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">检测<span class="set-gd">首次要手动点，之后新图会自动补测</span></div>
+          <div class="set-btns">
+            <button id="nsfwScan" class="sm" type="button" data-tip="开始检测：首次全库扫描；已经扫过则只补测新增和改动过的图">开始检测</button>
+            <button id="nsfwRescan" class="sm" type="button" data-tip="丢弃检测结果重新扫描（不影响你手动纠正过的判定）">重新检测</button>
+          </div>
+          <div class="set-prog" id="nsfwProg">
+            <div class="set-track"><i class="set-fill" id="nsfwFill"></i></div>
+            <div class="set-pline"><span id="nsfwProgTxt">尚未检测</span><b id="nsfwProgNum">0 / 0</b></div>
+          </div>
+          <div class="set-gh">首次需要手动点一次。检测会占用 CPU，与出图同时进行时会慢一些；之后新增的图会跟着目录刷新自动补测。</div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">模型档位</div>
+          <select id="nsfwModelSel" data-tip="轻量档够用且快；精确档误判更少（精确档模型约 85 MB，把 inception_v3.onnx 放进数据目录的 models/nsfw/ 会自动识别）" title="模型档位"></select>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">灵敏度</div>
+          <div class="densWrap">
+            <div class="dhead"><span class="dlabel">判定阈值</span><span class="dval" id="nsfwThrVal">0.60</span></div>
+            <input type="range" id="nsfwThr" min="5" max="95" step="1" value="60" aria-label="NSFW 判定阈值">
+            <div class="dtick"><span>更宽松</span><span>更严格</span></div>
+          </div>
+          <div class="set-gh">分数 ≥ 阈值即判为 NSFW。调低抓得更全但更容易误判；插画、二次元素材偏多就往严了调。
+            改完立即生效，<b>不需要重新检测</b>。</div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">显示方式<span class="set-gd">也能用工具条上的控件 / 快捷键 N 切换</span></div>
+          <div class="seg seg-wide" id="nsfwModeSeg" role="group" aria-label="NSFW 显示方式">
+            <button class="segbtn" type="button" data-n="hide" data-tip="从列表里剔除" aria-pressed="false">隐藏</button>
+            <button class="segbtn" type="button" data-n="blur" data-tip="毛玻璃遮罩，点单张揭开" aria-pressed="true">模糊</button>
+            <button class="segbtn" type="button" data-n="show" data-tip="原样呈现" aria-pressed="false">显示</button>
+          </div>
+          <div class="set-gh nsfw-mode-warn" id="nsfwModeWarn" hidden></div>
+          <div class="set-gh"><b>模糊只是界面遮罩，用于防止误看</b> —— 图片本身照常传输，直接访问文件地址仍能拿到原图。</div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">找回旧目录数据<span class="set-gd">目录移动 / 改名 / 换盘符后用</span></div>
+          <div class="set-btns">
+            <input id="migOldRoot" type="text" style="flex:1 1 auto;min-width:0" placeholder="填旧的根目录完整路径，例如 D:\图库" aria-label="旧目录路径">
+            <button id="migRun" class="sm" type="button" data-tip="把旧目录下的检测结果、人工纠正、收藏、标签、标记迁移到当前根目录；原数据不会被删除">从旧目录恢复</button>
+          </div>
+          <div class="set-gh">根目录移动、改名或换了盘符后，数据通常会自动找回。没找回来就在这里填旧路径手动恢复（原数据不会被删除）。</div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">人工纠正<span class="set-gd">模型必然有误判</span></div>
+          <button id="nsfwClearManual" class="sm set-wide" type="button" data-tip="清空所有人工纠正，全部回到模型判定">清空人工纠正</button>
+          <div class="set-gh">在大图里选「判错了」就能单独纠正一张。纠正过的判定优先级最高，重新检测也不会被覆盖。</div>
+        </section>
+      </div>
+
+      <div id="pageAbout" class="set-page" data-page="about" role="tabpanel" aria-labelledby="tabAbout">
+        <section class="set-grp">
+          <div class="set-gl">运行环境</div>
+          <div class="set-rows">
+            <div class="set-row"><span>ComfyMediaViewer</span><b id="setAboutVer">—</b></div>
+            <div class="set-row"><span>缩略图 / 查重（图片处理引擎）</span><b id="setPil">—</b></div>
+            <div class="set-row"><span>ComfyUI 桥接</span><b id="setBridge">—</b></div>
+          </div>
+        </section>
+        <section class="set-grp">
+          <div class="set-gl">快捷键</div>
+          <button id="setKeys" class="sm set-wide" type="button">查看快捷键一览</button>
+          <div class="set-gh">也可以在任意界面按 <kbd>?</kbd> 唤出同一面板。</div>
+        </section>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+<!-- G2 · V40：读屏状态播报区（视觉隐藏 · 不进 Tab 序 · 由 announce() 写入）
+     toast 是「看」的出口，这里是「听」的出口 —— 同一件事两个出口，缺一个就等于没做。
+       polite    走队列，不打断当前朗读（结果数、索引进度、常规成功）
+       assertive 立即打断（失败 / 危险操作的结果，用户必须马上知道） -->
+<div id="livePolite" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="liveAlert" class="sr-only" role="alert" aria-live="assertive" aria-atomic="true"></div>
+<div id="toastStack"></div>
+<div id="batchBar">
+  <span class="bn" id="batchN">已选 0</span>
+  <button id="bAll">全选</button>
+  <button id="bNone">清除</button>
+  <button id="bCmp" data-tip="并排对比所选（2-4 张）">对比</button>
+  <button id="bTag" data-tip="给所选批量贴标签"># 标签</button>
+  <button id="bExp" data-tip="复制到目标文件夹">导出…</button>
+  <button id="bDel" class="danger" data-tip="移入应用内回收站（可在「回收站」还原）">删除所选</button>
+  <button id="bExit">退出批量</button>
+</div>
+
+<!-- ============ 大图 Loupe ============ -->
+<div id="lb" role="dialog" aria-modal="true" aria-label="大图查看">
+  <div id="lb-top">
+    <button id="btnClose" class="tbtn" data-tip="返回网格 (Esc)"><span class="ic"></span>返回</button>
+    <span class="lname" id="lbName"></span>
+    <span id="lbSolo" data-tip="这张图是单独打开的临时副本，不在库里">单图</span>
+    <span class="ldim" id="lbDim"></span>
+    <span class="acts">
+      <select id="lbCat" data-tip="收藏分类" title="收藏分类"></select>
+      <select id="lbMark" data-tip="标记状态（与收藏分开：临时工作状态）" title="标记状态">
+        <option value="none">无标记</option>
+        <option value="review">待处理</option>
+        <option value="publish">待发布</option>
+        <option value="compare">待比较</option>
+        <option value="delete">待删除</option>
+      </select>
+      <!-- 快速人工归类（V2.11.1）：标签随当前判定翻转（标为 NSFW / 移出 NSFW）。
+           和卡片菜单走同一个 /api/nsfw/label，一条通道两种入口。
+           单图模式不显示 —— 那是库外临时副本，标了会跟着暂存区一起被清掉。 -->
+      <button id="lbNsfwCls" data-tip="人工归类这张（写入手动纠正表，重新检测也不会翻回去）" style="display:none"></button>
+      <button id="btnFav" data-tip="收藏"><span class="ic"></span>收藏</button>
+      <button id="btnOpen" data-tip="在 ComfyUI 打开（优先送进已打开的页面）" style="display:none"><span class="ic"></span>ComfyUI</button>
+      <button id="btnDlWF" data-tip="导出工作流 JSON" style="display:none"><span class="ic"></span>工作流</button>
+      <button id="btnCopy" class="primary" data-tip="复制提示词" style="display:none">复制 prompt</button>
+      <button id="btnDl" data-tip="下载（支持的格式会自动抹去元数据；其他格式下载原文件）">下载</button>
+      <button id="btnOpenFolder" data-tip="在资源管理器中显示"><span class="ic"></span></button>
+      <button id="btnDel" class="danger" data-tip="移入回收站">删除</button>
+    </span>
+  </div>
+  <!-- V2.11.2：原「这是自动识别出的敏感内容」黄色提示条已删。
+       揭开入口 = 舞台左上角眼睛（#lbEye），纠正入口 = 顶栏归类按钮（#lbNsfwCls），
+       两个职责都有明确归属，横幅属于重复入口，还占一整行高度。 -->
+  <div id="lbMid">
+    <!-- 左上角眼睛：和网格卡片的 .nv-eye 同一套交互语义 ——
+         盖着时红眼睛=单独看原图，揭开时换划线眼=重新模糊这张。
+         状态全部由 nsfwApplyLb() 现算（openLb 每次翻页都会调它），HTML 里不预置任何态。 -->
+    <button id="lbEye" class="nv-eye" type="button" data-tip="单独查看这张原图" hidden></button>
+    <div id="stage"></div>
+    <!-- M1（2026-10-08）：视频**不再自动播放**（进大图就出声太吓人），首帧当海报 + 中央播放按钮。
+         B1b（2026-10-09）：按钮是「播放/暂停」切换，且**只在暂停态露面** —— 播放中收起不挡画面；
+         播放中的暂停入口 = 控制条 #vPlay / 空格 / 点画面（见 nav.js）。显隐由 viewer.js 现算，
+         HTML 不预置态。
+         ⚠️ 它必须挂在 #stage **之外**：not 在里面，点击会命中 stage 而触发 nav.js 的「点空白关大图」。 -->
+    <button id="lbPlay" type="button" hidden></button>
+    <button id="navL" data-tip="上一张（←）"></button>
+    <button id="navR" data-tip="下一张（→）"></button>
+    <div id="zoomBadge"></div>
+    <button id="filmTgl" data-tip="收起/展开预览栏 (F)"></button>
+    <div id="vidBar">
+      <button id="vPlay" data-tip="播放/暂停（空格）"></button>
+      <input id="vSeek" type="range" min="0" max="1000" value="0" step="1" data-tip="播放进度（可拖动）" aria-label="播放进度">
+      <span id="vTime" class="vtime">0:00 / 0:00</span>
+      <input id="vVol" type="range" min="0" max="100" value="100" step="1" data-tip="音量" aria-label="音量">
+      <select id="vSpeed" data-tip="播放速度" title="播放速度">
+        <option value="0.25">0.25x</option><option value="0.5">0.5x</option>
+        <option value="1" selected>1x</option><option value="1.5">1.5x</option><option value="2">2x</option>
+      </select>
+      <button id="vLoop" data-tip="循环播放（L）"></button>
+      <button id="vFrameL" data-tip="上一帧（,）"></button>
+      <button id="vFrameR" data-tip="下一帧（.）"></button>
+      <button id="vMute" data-tip="静音（M）"></button>
+    </div>
+    <aside id="side">
+      <div class="hd"><span class="hd-t">详情</span><div class="spacer"></div>
+        <button id="sideTglX" class="ghost sm" data-tip="隐藏面板 (P)"></button>
+      </div>
+      <div id="tagPanel"></div>
+      <div id="meta"></div>
+    </aside>
+    <button id="sideTgl" data-tip="显示详情 (P)"></button>
+  </div>
+  <div id="lbFilm"></div>
+</div>
+
+<!-- ============ 对比视图 ============ -->
+<div id="cmp" role="dialog" aria-modal="true" aria-label="并排对比">
+  <div id="cmpBar">
+    <span id="cmpN"></span>
+    <button id="cmpWipe" class="sm" data-tip="两张图重叠，拖动分隔线对比细节" style="display:none"><span class="ic"></span>滑块模式</button>
+    <button id="cmpExit"><span class="ic"></span>退出对比 (Esc)</button>
+  </div>
+  <div id="cmpGrid"></div>
+  <div id="wipeWrap">
+    <div id="wipeStage">
+      <img id="wipeA" alt="">
+      <!-- B 的「只露右半边」裁切必须落在这层**不参与缩放**的容器上：
+           clip-path 是先按元素本地坐标裁、裁完再整体过 transform —— 挂在被 scale 的
+           图片上时，裁切边会跟着图一起放大/平移，而拖动的滑块是按 stage 百分比定死的，
+           于是放大后「滑块」与「画面里的分割线」就错开了。 -->
+      <div id="wipeBClip"><img id="wipeB" alt=""></div>
+      <div id="wipeHandle"><span class="knob"></span></div>
+      <div id="wipeLblA" class="wlbl"></div>
+      <div id="wipeLblB" class="wlbl"></div>
+    </div>
+    <div id="wipeHint">拖动分隔线对比 ｜ 滚轮缩放（两图同步）｜ 拖拽平移 ｜ 双击 100%↔适应 ｜ ←/→ 微调</div>
+  </div>
+</div>
+
+<!-- 快捷键速查面板（V17）—— 替代原先「一行 nowrap」的 ⌨ 提示条。
+     条目早就排到超宽（`/` `←→` `Esc` `F` `T` `[ ]` `Del` `P` `空格` …），一行放不下；
+     改为按用途分组的卡片，`?` 随时唤出、Esc 关闭。正文由 settings.js 的 KEY_GROUPS 渲染。 -->
+<div id="hintMask" hidden>
+  <section id="hintPanel" role="dialog" aria-modal="true" aria-labelledby="hintTitle">
+    <header class="set-hd">
+      <b id="hintTitle">快捷键</b>
+      <span class="set-hint">按 ? 随时唤出 · Esc 关闭</span>
+      <div class="grow"></div>
+      <button id="hintClose" class="ghost sm" data-tip="关闭（Esc）" aria-label="关闭快捷键说明"><span class="ic"></span></button>
+    </header>
+    <div class="hint-body" id="hintBody"></div>
+  </section>
+</div>
+
+  <script src="js/state.js" defer></script>
+  <script src="js/backend-compat.js" defer></script>
+  <script src="js/load-progress.js" defer></script>
+  <script src="js/classic-query.js" defer></script>
+  <script src="js/media-queue.js" defer></script>
+  <script src="js/app.js" defer></script>
+  <script src="js/favorites.js" defer></script>
+  <script src="js/filters.js" defer></script>
+  <script src="js/gallery.js" defer></script>
+  <script src="js/media-detail.js" defer></script>
+  <script src="js/classic-library.js" defer></script>
+  <script src="js/playback.js" defer></script>
+  <script src="js/grid-window.js" defer></script>
+  <script src="js/viewer.js" defer></script>
+  <script src="js/nav.js" defer></script>
+  <script src="js/batch.js" defer></script>
+  <script src="js/extras.js" defer></script>
+  <script src="js/settings.js" defer></script>
+  <!-- V10（D3）：列表视图列管理（显隐 / 列宽拖拽 / 持久化）。
+       放在 settings.js 之后：要读 popupMenu / toast（其在 app.js 定义，先于本文件加载）。 -->
+  <script src="js/columns.js" defer></script>
+  <script src="js/tags.js" defer></script>
+  <script src="js/boot.js" defer></script>
+  <script src="js/classic-data.js" defer></script>
+  <script src="js/classic-integration.js" defer></script>
+
+</body>
+</html>

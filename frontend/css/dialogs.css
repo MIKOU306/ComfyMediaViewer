@@ -1,0 +1,228 @@
+/* ComfyMediaViewer · css/dialogs.css
+   弹窗 / 菜单 / 目录选择器 / 视频控制条 / 统计与回收站组件。 */
+
+/* ---------- 弹窗骨架（规范 6：浮层有明显阴影，覆盖在内容之上） ---------- */
+.bigMask{position:fixed;inset:0;z-index:var(--z-mask);background:var(--mask-strong);display:flex;
+  align-items:center;justify-content:center}
+.bigBox{background:var(--panel);border:1px solid var(--border2);border-radius:var(--r-xl);
+  box-shadow:var(--sh-3);width:min(calc(900px*var(--fsx)),94vw);max-height:88vh;
+  display:flex;flex-direction:column;overflow:hidden}
+.bigBox .bhd{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);
+  border-bottom:1px solid var(--border)}
+.bigBox .bhd b{flex:1;min-width:0;font-size:var(--fs-h2);font-weight:var(--fw-semi)}
+.bigBox .bhd button{border:none;font-size:var(--fs-h2);color:var(--tx3);padding:0 var(--sp-2);
+  min-height:var(--h-ctl)}
+.bigBox .bbd{overflow:auto;padding:var(--sp-4);min-height:0;flex:1 1 auto}
+/* min-height:0：内容超出 88vh 时收缩滚动，而不是被裁掉底部 */
+
+/* ---------- 目录选择器（内嵌，替代系统文件夹对话框） ---------- */
+.dirPick{display:flex;flex-direction:column;gap:var(--sp-2);min-height:0}
+.dirPick .dpaddr{display:flex;gap:var(--sp-2)}
+.dirPick .dpaddr input{flex:1;min-width:0;font-size:var(--fs-ui)}
+.dirPick .dpcrumbs{display:flex;flex-wrap:wrap;align-items:center;gap:1px;
+  padding:var(--sp-1) var(--sp-2);background:var(--input-bg);border:1px solid var(--border);
+  border-radius:var(--r-sm);font-size:var(--fs-sm);min-height:var(--h-ctl)}
+.dirPick .dpcrumbs .crumb{color:var(--ac2-tx);cursor:pointer;padding:var(--sp-1) var(--sp-2);
+  border-radius:var(--r-sm)}
+.dirPick .dpcrumbs .crumb:hover{background:var(--panel3)}
+.dirPick .dpcrumbs .sep{color:var(--tx3);padding:0 1px}
+.dirPick .dpquick{display:flex;flex-wrap:wrap;gap:var(--sp-1)}
+.dirPick .chp{font-size:var(--fs-sm);height:var(--h-ctl);min-height:var(--h-ctl);
+  padding:0 var(--sp-3);border-radius:var(--r-sm);
+  background:var(--panel);border:1px solid var(--border);color:var(--tx2);
+  cursor:pointer;white-space:nowrap;max-width:calc(170px*var(--fsx));overflow:hidden;text-overflow:ellipsis}
+.dirPick .chp:hover{border-color:var(--ac2);color:var(--tx)}
+.dirPick .chp.on{border-color:var(--ac2);color:var(--ac2-tx);background:var(--ac-soft)}
+.dirPick .dptree{flex:1 1 auto;overflow:auto;border:1px solid var(--border);
+  border-radius:var(--r-lg);background:var(--panel);min-height:calc(120px*var(--fsx))}
+.dirPick .dprow{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);
+  cursor:pointer;border-bottom:1px solid var(--border);font-size:var(--fs-ui);user-select:none}
+.dirPick .dprow:last-child{border-bottom:none}
+.dirPick .dprow:hover{background:var(--panel2)}
+.dirPick .dprow .ic{width:calc(20px*var(--fsx));text-align:center;flex:none;opacity:.85}
+.dirPick .dprow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dirPick .dprow .n{flex:none;color:var(--tx3);font-size:var(--fs-meta)}
+.dirPick .dprow.back .nm{color:var(--ac2-tx)}
+.dirPick .dpempty{padding:var(--sp-6);text-align:center;color:var(--tx3);font-size:var(--fs-ui)}
+.dirPick .dpfoot{display:flex;align-items:center;gap:var(--sp-2);border-top:1px solid var(--border);
+  padding-top:var(--sp-2)}
+.dirPick .dpfoot .sel{flex:1;min-width:0;font-size:var(--fs-sm);color:var(--tx2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- 内联输入弹窗（新建收藏分类等） ---------- */
+#catInputMask{position:fixed;inset:0;z-index:var(--z-mask2);background:var(--mask-strong);
+  display:flex;align-items:center;justify-content:center}
+#catInputBox{background:var(--panel);border:1px solid var(--border2);border-radius:var(--r-xl);
+  box-shadow:var(--sh-3);padding:var(--sp-4);width:calc(320px*var(--fsx))}
+#catInputBox .cit{font-size:var(--fs-h2);margin-bottom:var(--sp-2);font-weight:var(--fw-semi)}
+#catInputBox input{width:100%;box-sizing:border-box;font-size:var(--fs-ui);
+  padding:0 var(--sp-2);background:var(--input-bg);border:1px solid var(--border);
+  border-radius:var(--r-sm);color:var(--tx);outline:none}
+#catInputBox input:focus{border-color:var(--ac2);box-shadow:var(--ring)}
+#catInputBox .cbtns{display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-4)}
+#catInputBox .cbtns button{font-size:var(--fs-ui);padding:0 var(--sp-4);border-radius:var(--r-sm)}
+/* P1-30（2026-09-20）：弹窗里的两个按钮此前**没有键盘焦点样式** ——
+   Tab 到「取消/确定」时看不出焦点在哪（输入框有 :focus，按钮漏了）。
+   补 :focus-visible（不是 :focus：鼠标点击不该出现焦点环，只给键盘）。 */
+#catInputBox .cbtns button:focus-visible{outline:none;box-shadow:var(--ring)}
+#catInputBox .cbtns .cancel{background:var(--panel);color:var(--tx2);border:1px solid var(--border)}
+#catInputBox .cbtns .cancel:hover{background:var(--panel2)}
+#catInputBox .cbtns .ok{background:var(--ac);color:var(--on-ac);font-weight:var(--fw-semi);border:none}
+#catInputBox .cbtns .ok:hover{background:var(--ac2)}
+#catInputBox .cbtns .ok.danger-solid{background:var(--err);color:var(--on-err)}
+
+/* ---------- 右键菜单 / 收藏分类菜单 ---------- */
+#catMenu{position:fixed;z-index:var(--z-menu);background:var(--panel2);border:1px solid var(--border2);
+  border-radius:var(--r-md);box-shadow:var(--sh-2);padding:var(--sp-1);
+  min-width:calc(190px*var(--fsx));max-height:60vh;overflow:auto;backdrop-filter:blur(var(--blur-md));
+  /* V47 翻案后按新判据补（2026-09-29）：命中「面积大（60vh）+ 背景模糊 + 滚动容器」三条 ——
+     滚动会持续重绘 backdrop-filter 的取样区，正是 L4 那类 stale surface 的同类高发组合。
+     ⚠️ 只在这里加：其余 4 处 backdrop-filter（#vidBar / .card .wicon b / #batchBar 等）
+     都是小面积静态元素，按判据不命中 —— 别全站撒（那是旧 V47 被证伪的写法）。
+     零隐形成本：#catMenu 是 createElement/remove 的短命元素（见 gallery.js/batch.js），
+     不存在时不会常驻占着一个合成层。 */
+  will-change:backdrop-filter;
+  --mi-gut:calc(16px*var(--fsx));   /* 菜单行图标列宽 */
+  --mi-gap:var(--sp-2)}             /* 图标列与文字列的间距 */
+/* .mi 恒在（没图标就留空槽）—— 否则有图标的行与纯文字行的文字起点不同，菜单左边缘参差不齐 */
+#catMenu .cmi>.mi{width:var(--mi-gut);flex:none;display:flex;align-items:center;
+  justify-content:center;margin-right:var(--mi-gap)}
+#catMenu .cmi>.mi .iico{width:calc(14px*var(--fsx));height:calc(14px*var(--fsx))}
+#catMenu .cmi>.tx{min-width:0;overflow:hidden;text-overflow:ellipsis}
+#catMenu .cmtitle{font-size:var(--fs-meta);color:var(--tx3);
+  padding:var(--sp-1) var(--sp-2) 2px calc(var(--sp-2) + var(--mi-gut) + var(--mi-gap))}
+#catMenu .cmi{padding:0 var(--sp-2);height:var(--h-ctl);display:flex;align-items:center;
+  border-radius:var(--r-sm);cursor:pointer;font-size:var(--fs-ui);white-space:nowrap;
+  transition:background-color var(--dur-base) var(--ease-std),color var(--dur-base) var(--ease-std)}
+#catMenu .cmi:hover{background:var(--ac);color:var(--on-ac)}
+#catMenu .cmi.new{color:var(--ok-tx)}
+#catMenu .cmi.danger{color:var(--err-tx)}
+#catMenu .cmsep{height:1px;background:var(--border);margin:var(--sp-1)}
+#catMenu .inputrow{display:flex;gap:var(--sp-1);padding:var(--sp-1)}
+#catMenu .inputrow input{flex:1;min-width:calc(110px*var(--fsx));font-size:var(--fs-sm);
+  padding:0 var(--sp-2);background:var(--input-bg);border:1px solid var(--border);
+  border-radius:var(--r-sm);color:var(--tx);outline:none}
+#catMenu .inputrow button{font-size:var(--fs-sm);padding:0 var(--sp-2);background:var(--ac);
+  color:var(--on-ac);border:none;border-radius:var(--r-sm);cursor:pointer}
+
+/* ---------- 弹窗内组件(统计/回收站/查重) ---------- */
+.statGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(calc(160px*var(--fsx)),1fr));
+  gap:var(--sp-2);margin-bottom:var(--sp-1)}
+.statCard{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-lg);
+  padding:var(--sp-2) var(--sp-3)}
+.statCard .v{font-size:calc(20px*var(--fsx));font-weight:var(--fw-semi);font-variant-numeric:tabular-nums}
+.statCard .l{font-size:var(--fs-meta);color:var(--tx3);margin-top:1px}
+.brow{display:flex;align-items:center;gap:var(--sp-2);margin:var(--sp-1) 0;font-size:var(--fs-sm)}
+.brow.clickable{cursor:pointer;border-radius:var(--r-sm);padding:0 var(--sp-1);
+  transition:background-color var(--dur-fast)}
+.brow.clickable:hover{background:var(--panel2)}
+.brow .bl{flex:1;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44%}
+.brow .bt{flex:1.15;background:var(--bg);border-radius:var(--r-pill);overflow:hidden;height:calc(12px*var(--fsx))}
+.brow .bar{height:100%;background:var(--ac);border-radius:var(--r-pill);display:block;min-width:2px}
+.brow .bn2{width:calc(48px*var(--fsx));text-align:right;color:var(--tx3);flex:none;
+  font-variant-numeric:tabular-nums;font-size:var(--fs-sm)}
+
+/* ---------- 出图统计 · 每日产出日历热力图（V11，2026-09-29）----------
+   GitHub 贡献图式：**一列一周、一行一天（周一起）**，颜色深浅＝当天出图数。
+   为什么要有它：`by_day` 原本是一条条形图，数字能看但**看不出趋势** —— 哪几天高产、
+   哪段日子停更，条形图得逐行数；格子图一眼扫过去就有。
+
+   响应式中两个必须写对的点：
+   ① 列数**随数据跨度增长**（最多 12 周）⇒ 窄屏必然放不下，走横向滚动（口径与
+      #lbFilm / #lb-top 一致：scrollbar 隐掉但能滚），绝不压缩格子去硬塞。
+   ② 格子尺寸**必须跟 --fsx**：用户 150% 字号时格子要跟着长，写死 px 会和大字号脱节
+      （本项目硬约束：UI 尺寸禁写死像素）。
+
+   配色 token 而不是写死色值：分级用 color-mix 从 --ac 往 --canvas 混 ——
+   换主题 / 以后做强调色切换（V20 类需求）时派生自动跟上，不必回头改这五处；
+   0 级用既有 --bg 令牌。**格子里不放文字**，所以不存在「白字压浅底」那类对比度事故。 */
+.heat{--hc:calc(13px*var(--fsx));--hg:calc(3px*var(--fsx));
+  margin:calc(14px*var(--fsx)) 0 calc(4px*var(--fsx))}
+.heatHead{display:flex;align-items:baseline;gap:var(--sp-2);font-weight:var(--fw-semi);
+  margin-bottom:calc(6px*var(--fsx))}
+.heatHead .hsub{font-weight:400;color:var(--tx3);font-size:var(--fs-meta)}
+.heatBody{overflow-x:auto;scrollbar-width:none}
+.heatBody::-webkit-scrollbar{display:none}
+/* V11 排布（2026-09-30 用户反馈改版）：月历式横排 —— 一行一周、周一→周日横向，
+   最近几周往下堆。旧版「一列一周」（GitHub 式纵排）被指反直觉。 */
+.heatDow{display:grid;grid-template-columns:repeat(7,var(--hc));gap:var(--hg);flex:none;
+  font-size:var(--fs-meta);color:var(--tx3);margin-bottom:calc(1px*var(--fsx))}
+.heatDow span{display:flex;align-items:center;justify-content:center;line-height:1}
+.heatGrid{display:grid;grid-template-columns:repeat(7,var(--hc));
+  gap:var(--hg);width:max-content}
+.heatGrid i{display:block;width:var(--hc);height:var(--hc);
+  border-radius:calc(3px*var(--fsx));background:var(--bg)}
+/* lv 分级挂在 .heat 而不是 .heatGrid：图例那五个格子要复用同一套色，另写一份会漂移 */
+.heat i.lv1{background:color-mix(in srgb,var(--ac) 25%,var(--canvas))}
+.heat i.lv2{background:color-mix(in srgb,var(--ac) 48%,var(--canvas))}
+.heat i.lv3{background:color-mix(in srgb,var(--ac) 72%,var(--canvas))}
+.heat i.lv4{background:var(--ac)}
+.heatGrid i.pad{background:transparent}
+/* hover 用 outline 不用 border：border 会改变盒子尺寸，格子会跟着错半格 */
+.heatGrid i[data-tip]:hover{outline:1px solid var(--tx3);outline-offset:0}
+.heatLegend{display:flex;align-items:center;gap:calc(3px*var(--fsx));
+  margin-top:calc(7px*var(--fsx));font-size:var(--fs-meta);color:var(--tx3)}
+.heatLegend i{display:block;width:var(--hc);height:var(--hc);
+  border-radius:calc(3px*var(--fsx))}
+.heatEmpty{color:var(--tx3);font-size:var(--fs-sm);padding:var(--sp-2) 0}
+.trRow{display:flex;gap:var(--sp-2);align-items:center;padding:var(--sp-2);
+  border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:var(--sp-2);background:var(--bg)}
+.trRow img{width:calc(72px*var(--fsx));height:calc(72px*var(--fsx));object-fit:cover;border-radius:var(--r-md);background:var(--canvas);flex:none}
+.trRow .ti{flex:1;min-width:0}
+.trRow .tn{font-size:var(--fs-ui);word-break:break-all}
+.trRow .td{font-size:var(--fs-meta);color:var(--tx3);margin-top:calc(2px*var(--fsx));word-break:break-all}
+.trRow button{flex:none;font-size:var(--fs-sm);padding:0 var(--sp-3)}
+.dupGroup{border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-3);
+  margin-bottom:var(--sp-2);background:var(--bg)}
+.dupImgs{display:flex;gap:var(--sp-2);flex-wrap:wrap}
+.dupItem{width:calc(120px*var(--fsx));text-align:center}
+.dupItem img{width:calc(120px*var(--fsx));height:calc(120px*var(--fsx));object-fit:contain;background:var(--canvas);
+  border-radius:var(--r-md);cursor:pointer;border:2px solid transparent;box-sizing:border-box}
+.dupItem.keep img{border-color:var(--ok)}
+.dupItem .dn{font-size:var(--fs-meta);color:var(--tx3);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;margin-top:calc(2px*var(--fsx))}
+.dupItem .dc{font-size:var(--fs-micro);color:var(--ok-tx)}
+
+/* ---------- 视频控制条 ---------- */
+#vidBar{position:absolute;left:50%;bottom:var(--sp-4);transform:translateX(-50%);z-index:var(--z-vbar);display:none;
+  gap:var(--sp-1);background:var(--panel2);border:1px solid var(--border2);border-radius:var(--r-lg);
+  padding:var(--sp-1) var(--sp-2);align-items:center;backdrop-filter:blur(var(--blur-md));box-shadow:var(--sh-2)}
+#vidBar.on{display:flex}
+#vidBar button{padding:0 var(--sp-2);font-size:var(--fs-sm);height:var(--h-ctl-sm);
+  min-height:var(--h-ctl-sm);border-radius:var(--r-sm);
+  display:inline-flex;align-items:center;justify-content:center}   /* V4 批次 2：图标槽 */
+#vidBar button .iico{width:calc(15px*var(--fsx));height:calc(15px*var(--fsx))}
+#vidBar button.on{background:var(--ac);color:var(--on-ac);border-color:transparent}
+#vidBar select{padding:0 var(--sp-1);font-size:var(--fs-sm);height:var(--h-ctl-sm);
+  min-height:var(--h-ctl-sm)}
+/* V46（批次 G3）：自绘进度 / 音量 / 时间。宽度用 min() 跟随视口，窄窗不撑破条；
+   vtime 表格数字防每帧跳动抖布局。 */
+#vidBar #vSeek{width:min(340px,30vw)}
+#vidBar #vVol{width:calc(72px*var(--fsx))}   /* 批次 D：原为裸 72px，字号放大不跟随 */
+#vidBar .vtime{font-size:var(--fs-xs);color:var(--tx2);white-space:nowrap;
+  font-variant-numeric:tabular-nums;min-width:calc(86px*var(--fsx));text-align:center}
+#top .tbtn.on{color:var(--ac-tx);background:var(--ac-soft)}
+
+/* 通用隐藏 */
+[hidden]{display:none!important}
+
+/* 详情面板滑出 + 边缘开关 */
+#side.hidden #meta,#side.hidden .hd,#side.hidden #tagPanel{visibility:hidden}
+#sideTgl{display:none}
+#side.hidden~#sideTgl{display:flex}
+
+/* ---------- V4 图标批次 3 · 弹窗与菜单（字符图标 → 矢量） ---------- */
+/* 通用大弹窗（.bigBox）标题栏关闭键：原来是一个 ✕ 字符，靠 font-size 撑大 */
+.bigBox .bhd button{display:inline-flex;align-items:center;justify-content:center}
+.bigBox .bhd button .iico{width:calc(16px*var(--fsx));height:calc(16px*var(--fsx))}
+/* 目录选择器 · 快捷 chip（盘符 drive / ComfyUI 出图 palette / 常用目录 history） */
+.dirPick .chp{display:inline-flex;align-items:center;gap:calc(4px*var(--fsx))}
+.dirPick .chp .iico{width:calc(14px*var(--fsx));height:calc(14px*var(--fsx));flex:none}
+/* 目录选择器 · 目录树行首（返回上级 arrowUpLeft / 目录 dir）—— 原来是 text-align 居中的字符 */
+.dirPick .dprow .ic{display:flex;align-items:center;justify-content:center}
+.dirPick .dprow .ic .iico{width:calc(15px*var(--fsx));height:calc(15px*var(--fsx))}
+/* 查重弹窗 · 缩略图下方的「✓ 保留」 */
+.dupItem .dc{display:flex;align-items:center;justify-content:center;gap:calc(3px*var(--fsx))}
+.dupItem .dc .iico{width:calc(11px*var(--fsx));height:calc(11px*var(--fsx))}
+/* 回收站 · 非缩略图条目的类型占位（视频 film / 其它文件 file） */
+.trRow .ph .iico{width:calc(26px*var(--fsx));height:calc(26px*var(--fsx));opacity:.7}

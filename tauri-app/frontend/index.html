@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>ComfyMediaViewer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 窗口按钮：悬浮在应用顶栏右端，与顶栏同高（高度由 app 上报，字号/视口变化会自动跟随） -->
+  <div id="winctrls">
+    <button class="min" data-act="minimize" title="最小化" aria-label="最小化">
+      <svg viewBox="0 0 10 10"><rect x="0" y="4.2" width="10" height="1.4"/></svg>
+    </button>
+    <button class="max" data-act="maximize" title="最大化" aria-label="最大化">
+      <svg viewBox="0 0 10 10"><rect x="0.7" y="0.7" width="8.6" height="8.6" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+    </button>
+    <button class="close" data-act="close" title="关闭" aria-label="关闭">
+      <svg viewBox="0 0 10 10"><path d="M0,0 L10,10 M10,0 L0,10" stroke="currentColor" stroke-width="1.4"/></svg>
+    </button>
+  </div>
+
+  <!-- 应用本体：由 main.rs 在后端就绪后注入 src，同一 WebView 内以 iframe 呈现 -->
+  <iframe id="app-frame" src="about:blank" allow="fullscreen; clipboard-read; clipboard-write"></iframe>
+
+  <!-- 启动遮罩：后端未就绪时显示，iframe 加载完成后隐藏
+       光环轨道为纯 CSS；粒子与星点由脚本按屏幕尺寸/核心数动态生成（数量自适应），这里只留容器 -->
+  <div id="boot">
+    <div class="stack">
+      <div class="orbit" aria-hidden="true">
+        <div class="sweep"></div>
+        <div class="r1"></div>
+        <div class="r2"></div>
+        <div class="r3"><i class="sat"></i></div>
+      </div>
+      <div class="cfield" id="bootField" aria-hidden="true"></div>
+      <div class="aGlow" aria-hidden="true"></div>
+      <div class="pulse" aria-hidden="true"></div>
+      <div class="pulse p2" aria-hidden="true"></div>
+      <div class="coreWrap" aria-hidden="true"><div class="core">CF</div></div>
+      <div class="stage" id="bootStage">正在启动媒体服务…</div>
+      <div class="scanline" aria-hidden="true"></div>
+      <div class="brand">COMFY MEDIA VIEWER</div>
+    </div>
+    <div class="err" id="bootErr"></div>
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>

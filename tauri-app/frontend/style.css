@@ -1,0 +1,269 @@
+  :root {
+    color-scheme: dark;
+    --bg:#141518; --panel:#1c1c20; --tx:#e8eaf0; --tx2:#8b919c; --ac:#3B6BE0;
+    /* ↑ --ac 与应用侧 tokens.css 的 --ac **同值**（原为 #4f7cff，是孤立的第三种蓝）。
+         批次 A · U3（2026-10-06）收口；扫描细线原本硬编码同一个 #4f7cff，已改读本令牌。
+       ⚠️ 壳页恒为深色（color-scheme:dark），故取主应用**深色**段的取值。 */
+    /* 以下缓动/时长令牌与应用侧 css/tokens.css 同源同值。
+       壳页是独立文档、不能 <link> tokens.css，故此处复制一份，改一边记得对一边。 */
+    --ease-out:cubic-bezier(.22,.61,.36,1);
+    --ease-std:cubic-bezier(.4,0,.2,1);
+    --dur-fast:.15s; --dur-base:.2s; --dur-slow:.28s; --dur-loop:1.3s;
+    /* 品牌视觉：--brand-grad 与应用侧**同值**；--glow-ac 是**同名不同值**（刻意）。
+       原因：投影范围必须配容器尺寸 —— 壳页 .core 是 76px 大方块、主应用 .cube 是 26px 小方块，
+       同一组光晕压不住两个尺寸（原注释「同名同值」是错的，批次 A · U3 已更正）。
+       改一边必须对一边，已列入发版检查表。启动遮罩的 .core 也读这两个。 */
+    --brand-grad:linear-gradient(135deg, #3B6BE0, #2A55C8);
+    --glow-ac:0 14px 42px rgba(59,107,224,.42);
+    /* 窗口按钮尺寸：--winctrl-w 必须与应用侧 css/tags.css 的 body.in-shell #top
+       padding-right 计算保持一致（那边按 3 倍宽度让位） */
+    --winctrl-w: 46px;
+    --winctrl-h: 38px;          /* 运行期由 app 上报的顶栏实高覆盖，保证与顶栏同一行 */
+  }
+  html,body { margin:0; height:100%; overflow:hidden; background:var(--bg); }
+  body { font-family:"Segoe UI","Microsoft YaHei",sans-serif; }
+
+  /* ===== 窗口按钮层 =====
+     不再单独占一条标题栏：三个按钮固定悬浮在右上角，正好落在应用顶栏（#top）的右端，
+     视觉上就是顶栏的一部分。容器本身不接收事件（pointer-events:none），
+     所以除了按钮以外的区域全部穿透给下方 iframe，应用照常可点。 */
+  #winctrls {
+    position:fixed; top:0; right:0; height:var(--winctrl-h);
+    display:flex; z-index:100; pointer-events:none;
+  }
+  #winctrls button {
+    width:var(--winctrl-w); height:100%; padding:0; border:0; background:transparent;
+    font:inherit; font-size:14px; cursor:pointer; color:#9aa2b1;
+    display:flex; align-items:center; justify-content:center;
+    transition:background .12s, color .12s; pointer-events:auto;
+  }
+  /* 中性配色：亮/暗主题下都能看清，因此不需要跟应用主题来回同步 */
+  #winctrls button:hover { background:rgba(140,150,170,.22); color:#fff; }
+  #winctrls button.close:hover { background:#c42b1c; color:#fff; }
+  #winctrls svg { width:10px; height:10px; fill:currentColor; display:block; }
+
+  /* ===== 应用 iframe：从 0 开始铺满，顶栏就是窗口的第一行 =====
+     淡入交接：初始 opacity:0，iframe 真正 load 后加 .ready 淡入，
+     与 #boot 的收束淡出交叉进行，避免遮罩消失瞬间的「硬切」。 */
+  #app-frame {
+    position:absolute; top:0; left:0; right:0; bottom:0;
+    width:100%; height:100%;
+    border:0; background:var(--bg); display:block;
+    opacity:0; transition:opacity .32s var(--ease-out);
+  }
+  #app-frame.ready { opacity:1; }
+
+  /* ===== 启动遮罩 · 光环轨道 + 粒子汇聚 =====
+     设计意图：启动期后端不给任何进度信号（只有端口就绪这一个布尔），
+     所以不做数字进度，改做「能无限承接 1.5~8 秒的意象化演出」：
+       入场段（0~800ms，一次性）→ 保持段（无限循环的旋转/汇聚/呼吸）→ 收束段（就绪时 250ms 淡出）
+     品牌方块是主角：三道同心圆环 + 光带扫描 + 卫星点构成「极简光环」，文字下扫描细线
+     承接「无进度信号」的等待；光点粒子从四周持续向方块汇聚、脉冲环随之扩散，表达「服务正在拉起」。
+     层级（自下而上）：.orbit/.cfield(1) < .pulse/.aGlow(2) < 方块与文字(3)；#boot 自身 z=5（低于 #winctrls 的 100）。 */
+  #boot {
+    position:absolute; top:0; left:0; right:0; bottom:0;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--tx2); background:var(--bg); z-index:5;
+    overflow:hidden;                       /* 粒子与光环飞出画面不外溢 */
+    transition:opacity .26s var(--ease-out), transform .26s var(--ease-out);
+  }
+  /* 收束：先整体放大淡出，再由脚本 display:none（保留 .hide 语义供 iframe load 调用） */
+  #boot.hide { opacity:0; transform:scale(1.05); pointer-events:none; }
+  #boot.gone { display:none; }
+
+  /* --- 内层舞台：所有视觉元素以它为共同中心（保证方块 / 光环 / 粒子同心） --- */
+  #boot .stack {
+    position:relative;
+    display:flex; flex-direction:column; align-items:center;
+  }
+
+  /* --- 光环轨道：三道同心圆环 + 光带扫描 + 卫星点 ---
+     锚在 .coreWrap 中心（top:0 起算 38px = 方块半高），确保与方块同心。
+     旋转元素的静态居中偏移必须并进 keyframes 各帧的 translate()，
+     不能用 translate 独立属性（CSS Transforms L2，旧 WebView2 可能不支持）。 */
+  #boot .orbit {
+    position:absolute; left:50%; top:38px; width:0; height:0;
+    z-index:1; pointer-events:none;
+  }
+  #boot .orbit > div { position:absolute; left:0; top:0; border-radius:50%; }
+  /* 光带扫描：conic 渐变的扇形高亮沿环带转动（mask 裁成环），3.6s 一圈 */
+  #boot .sweep {
+    width:430px; height:430px;
+    background:conic-gradient(from 0deg,
+      rgba(79,124,255,0) 0deg, rgba(79,124,255,.32) 46deg, rgba(79,124,255,0) 96deg);
+    -webkit-mask:radial-gradient(closest-side, transparent 63%, #000 64.5%, #000 76%, transparent 77.5%);
+            mask:radial-gradient(closest-side, transparent 63%, #000 64.5%, #000 76%, transparent 77.5%);
+    animation:ringSpin 3.6s linear infinite;
+  }
+  #boot .r1 { width:308px; height:308px; border:1px solid rgba(139,145,156,.18);
+              transform:translate(-50%,-50%); }
+  #boot .r2 { width:216px; height:216px; border:1px dashed rgba(79,124,255,.32);
+              animation:ringSpinRev 20s linear infinite; }
+  #boot .r3 { width:374px; height:374px; border:1px solid rgba(139,145,156,.09);
+              animation:ringSpin 30s linear infinite; }
+  /* 卫星点：挂在 r3 上随环公转（自身无动画，避免与父级旋转冲突） */
+  #boot .sat {
+    position:absolute; left:50%; top:-3px; width:6px; height:6px; margin-left:-3px;
+    border-radius:50%; background:#6f9bff; box-shadow:0 0 10px 2px rgba(79,124,255,.75);
+  }
+  @keyframes ringSpin    { from { transform:translate(-50%,-50%) rotate(0deg); }
+                           to   { transform:translate(-50%,-50%) rotate(360deg); } }
+  @keyframes ringSpinRev { from { transform:translate(-50%,-50%) rotate(0deg); }
+                           to   { transform:translate(-50%,-50%) rotate(-360deg); } }
+
+  /* --- 粒子汇聚：光点从外环持续飞向方块 ---
+     起点半径 30%~52% 视口短边，终点半径 26~66px（没入方块），
+     负延迟让页面一打开就是「进行中」而不是先空场。 */
+  #boot .cfield {
+    position:absolute; left:50%; top:38px; width:0; height:0;
+    z-index:1; pointer-events:none;
+  }
+  #boot .pt {
+    position:absolute; left:0; top:0;
+    width:var(--s); height:var(--s);
+    margin-left:calc(var(--s) / -2); margin-top:calc(var(--s) / -2);
+    border-radius:50%; background:var(--c);
+    box-shadow:0 0 8px 1px var(--c);
+    opacity:0; will-change:transform,opacity;
+    animation:ptConverge var(--dur) linear var(--delay) infinite;
+  }
+  @keyframes ptConverge {
+    0%   { transform:translate(var(--sx), var(--sy)) scale(1);   opacity:0; }
+    14%  { opacity:.95; }
+    78%  { opacity:.85; }
+    100% { transform:translate(var(--ex), var(--ey)) scale(.22); opacity:0; }
+  }
+  /* 脉冲环：粒子抵达时的「呼吸波」，两枚相位错开 1.3s */
+  #boot .pulse {
+    position:absolute; left:50%; top:38px; z-index:2;
+    width:130px; height:130px; margin:-65px 0 0 -65px;
+    border-radius:50%; border:1px solid rgba(79,124,255,.5);
+    pointer-events:none; opacity:0;
+    animation:pulseRing 2.6s var(--ease-out) infinite;
+  }
+  #boot .pulse.p2 { animation-delay:1.3s; }
+  @keyframes pulseRing {
+    0%   { transform:scale(.6);  opacity:.75; }
+    70%  { opacity:.18; }
+    100% { transform:scale(2.3); opacity:0; }
+  }
+  /* 静态星点底：闪烁的远星，拉开纵深 */
+  #boot .star {
+    position:absolute; left:0; top:0; width:2px; height:2px; margin:-1px;
+    border-radius:50%; background:rgba(139,150,180,.5);
+    animation:starTwinkle var(--td,3s) var(--ease-std) var(--delay,0s) infinite;
+  }
+  @keyframes starTwinkle { 0%,100% { opacity:.25; } 50% { opacity:.9; } }
+
+  /* --- 方块背后柔光：托住主角，不压粒子（透明渐变、非压暗遮罩） --- */
+  #boot .aGlow {
+    position:absolute; left:50%; top:38px; z-index:2;
+    width:320px; height:320px; transform:translate(-50%,-50%);
+    border-radius:50%; pointer-events:none;
+    background:radial-gradient(closest-side, rgba(59,107,224,.22), rgba(59,107,224,0) 72%);
+    animation:haloPulse 2.8s var(--ease-std) infinite;
+  }
+  @keyframes haloPulse { 0%,100% { opacity:.8; } 50% { opacity:1; } }
+
+  /* --- 品牌方块：居中主角，轻微上下呼吸 ---
+     缩放入场与持续呼吸都是 transform，若挂在同一元素上会互相覆盖，
+     故拆两层：外层 .coreWrap 负责一次性缩放弹入，内层 .core 负责无限呼吸。 */
+  #boot .coreWrap {
+    position:relative; z-index:3;
+    animation:coreIn .58s var(--ease-out) both;
+  }
+  #boot .core {
+    width:76px; height:76px; border-radius:18px;
+    display:flex; align-items:center; justify-content:center;
+    /* V2.10.7 / 批次 A：与应用侧品牌方块同步 —— 走上面的 --brand-grad / --glow-ac */
+    background:var(--brand-grad);
+    color:#fff; font-size:30px; font-weight:700; letter-spacing:1.5px;
+    box-shadow:var(--glow-ac), 0 0 0 1px rgba(255,255,255,.10) inset;
+    animation:coreBreathe 2.8s var(--ease-std) .58s infinite;
+    will-change:transform;
+  }
+  @keyframes coreIn {
+    from { opacity:0; transform:scale(.62); }
+    to   { opacity:1; transform:scale(1); }
+  }
+  @keyframes coreBreathe {
+    0%, 100% { transform:translateY(0)     scale(1);     }
+    50%      { transform:translateY(-4px)  scale(1.022); }
+  }
+
+  /* --- 阶段文字：方块下方，逐层淡入；省略号呼吸（clip-path 步进露点） --- */
+  #boot .stage {
+    position:relative; z-index:3; margin-top:34px;
+    font-size:13px; letter-spacing:.4px; color:var(--tx2);
+    opacity:0; animation:fadeUp .5s var(--ease-out) .34s both;
+  }
+  #boot .stage::after {
+    content:'…'; display:inline-block; text-align:left; width:1.4em;
+    animation:stageDots 1.2s steps(4, end) infinite;
+  }
+  /* '…' 三点从左到右依次露出再清空：宽 '…' 全占位，露点过程不抖动 */
+  @keyframes stageDots {
+    0%   { clip-path:inset(0 100% 0 0); }
+    100% { clip-path:inset(0 -2% 0 0); }
+  }
+  /* 扫描细线：承接「无进度信号」的不确定等待（不定进度条的意象化） */
+  #boot .scanline {
+    position:relative; z-index:3; margin-top:16px;
+    width:132px; height:2px; border-radius:2px;
+    background:rgba(139,145,156,.16); overflow:hidden;
+    opacity:0; animation:fadeUp .5s var(--ease-out) .52s both;
+  }
+  #boot .scanline::before {
+    content:''; position:absolute; top:0; left:-42%; width:42%; height:100%;
+    background:linear-gradient(90deg, transparent, var(--ac), transparent);
+    animation:scanX 1.7s var(--ease-std) infinite;
+  }
+  @keyframes scanX { to { left:102%; } }
+  #boot .brand {
+    position:relative; z-index:3; margin-top:9px;
+    font-size:11px; letter-spacing:2.4px; color:#5a6170;
+    opacity:0; animation:fadeUp .5s var(--ease-out) .46s both;
+  }
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(6px); }
+    to   { opacity:1; transform:translateY(0);   }
+  }
+
+  /* --- 错误态：绝对定位在舞台下方，不参与 .stack 居中计算 --- */
+  #boot .err {
+    display:none; position:absolute; left:50%; top:calc(50% + 96px);
+    transform:translateX(-50%); z-index:4;
+    color:#ff8a80; font-size:13px; margin-top:0; max-width:440px; line-height:1.7;
+    word-break:break-all; padding:0 24px; text-align:center;
+  }
+  #boot .err.show { display:block; }
+  /* 错误时停止所有动画，只留静态（含 ::after 省略号与扫描线高光——失败文案不带动态） */
+  #boot.failed .pt, #boot.failed .star, #boot.failed .sweep,
+  #boot.failed .r2, #boot.failed .r3, #boot.failed .pulse,
+  #boot.failed .aGlow, #boot.failed .coreWrap, #boot.failed .core,
+  #boot.failed .stage, #boot.failed .brand, #boot.failed .scanline { animation:none; }
+  #boot.failed .stage::after { animation:none; content:none; }
+  #boot.failed .scanline::before { animation:none; content:none; }
+  #boot.failed .pt, #boot.failed .star, #boot.failed .pulse { opacity:0; }
+  /* 冻结后的光环太抢戏（静态大圆弧），压暗让错误文案当主角 */
+  #boot.failed .orbit { opacity:.3; }
+  #boot.failed .coreWrap,
+  #boot.failed .core,
+  #boot.failed .aGlow { opacity:1; }
+  #boot.failed .stage,
+  #boot.failed .brand,
+  #boot.failed .scanline { opacity:1; }
+
+  /* --- 无障碍 / 低配降级：全部动画停止，退化为静态展示（粒子与星点不生成） --- */
+  @media (prefers-reduced-motion: reduce) {
+    #boot .pt, #boot .star { animation:none; opacity:0; }
+    #boot .sweep, #boot .r2, #boot .r3 { animation:none; }
+    #boot .sweep { opacity:.3; }
+    #boot .pulse { animation:none; opacity:0; }
+    #boot .aGlow, #boot .coreWrap, #boot .core,
+    #boot .stage, #boot .brand, #boot .scanline { animation:none; }
+    #boot .stage::after, #boot .scanline::before { animation:none; }
+    #boot .coreWrap, #boot .core { opacity:1; }
+    #boot .aGlow { opacity:.6; }
+    #boot .stage, #boot .brand, #boot .scanline { opacity:1; }
+  }

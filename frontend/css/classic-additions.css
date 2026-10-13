@@ -1,0 +1,21 @@
+/* Scoped additions; the eleven original classic stylesheets remain unchanged. */
+#cmvLoad[hidden]{display:none}
+#cmvLoad{position:absolute;inset:0;z-index:var(--z-raise);display:grid;place-items:center;background:var(--panel);padding:24px}
+.cmv-load-card{width:min(380px,100%);padding:22px;border:1px solid var(--border);border-radius:12px;background:var(--bg);box-shadow:0 8px 30px #0002}
+#cmvLoadText{font-weight:600;color:var(--tx);margin-bottom:16px}
+#cmvLoadBar{display:block;width:100%;height:8px;border:0;border-radius:6px;overflow:hidden;appearance:none;accent-color:var(--ac)}
+#cmvLoadBar::-webkit-progress-bar{background:var(--border);border-radius:6px}
+#cmvLoadBar::-webkit-progress-value{background:var(--ac);border-radius:6px;transition:width .2s ease}
+#cmvLoadBar:indeterminate::-webkit-progress-bar{background:linear-gradient(90deg,var(--border) 0%,var(--ac) 50%,var(--border) 100%);background-size:200% 100%;animation:cmvLoadPulse 1.5s linear infinite}
+.cmv-load-info{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;color:var(--tx2);font-size:12px;line-height:1.7;margin-top:12px}
+#cmvLoadElapsed{white-space:nowrap}
+@keyframes cmvLoadPulse{to{background-position:-200% 0}}
+@media(prefers-reduced-motion:reduce){#cmvLoadBar:indeterminate::-webkit-progress-bar{animation:none}}
+#cmvArchiveRecord summary{cursor:pointer}
+#cmvArchiveRecord .mv-archive-body{padding-top:12px}
+#cmvArchiveRecord .mrow dd{overflow-wrap:anywhere}
+#cmvArchiveRecord .mv-generation-step{padding:10px 0;border-top:1px solid var(--border)}
+#cmvArchiveRecord .mv-generation-title{font-weight:600;margin-bottom:8px}
+#cmvArchiveRecord .mv-generation-seed{font-size:12px;overflow-wrap:anywhere;margin:6px 0}
+#cmvArchiveRecord .mv-generation-prompts pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto}
+#cmvArchiveRecord .mv-archive-state{color:var(--tx2)}

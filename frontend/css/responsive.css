@@ -1,0 +1,79 @@
+/* ComfyMediaViewer · css/responsive.css
+   窄屏适配（阶段六）：≤900px 抽屉式侧栏，≤620px 底部详情抽屉 + 大触摸目标，≤480px 只留核心操作。
+   放在样式表末尾：否则会被前面写的左栏基础规则覆盖。 */
+/* P1-29（2026-09-20）：底色改走 --mask-drawer 令牌 —— 此前是裸 rgba(0,0,0,.55)，
+   亮色主题下**没有覆盖**，纯黑压在白面板上发脏。现在亮色/暗色各自取值。 */
+#navBack{display:none;position:fixed;inset:0;z-index:var(--z-scrim);background:var(--mask-drawer)}
+body.nav-open #navBack{display:block}
+
+@media (max-width:900px){
+  /* 左栏 → 覆盖式抽屉（宽度不窄于桌面侧栏，保持条目文字完整） */
+  #left{position:fixed;left:0;top:0;bottom:0;z-index:var(--z-drawer2);width:min(86vw,calc(300px*var(--fsx)));
+    transform:translateX(-103%);transition:transform var(--dur-base) var(--ease-std);
+    box-shadow:var(--sh-drawer-side)}
+  body.nav-open #left{transform:none}
+  #left.collapsed{width:min(86vw,calc(300px*var(--fsx)));padding:var(--sp-3) 0 var(--sp-4);
+    border-right:1px solid var(--border);overflow-y:auto;margin-left:0}   /* 抽屉模式下「折叠」由开合取代；
+    margin-left:0 必须留：宽屏的折叠位移是负 margin，若不清掉，「宽屏折叠 → 缩窗 → 开抽屉」会把抽屉推出屏外 */
+  #leftTgl{position:fixed;left:0;top:calc(var(--top-h) + var(--sp-3));z-index:var(--z-raise);
+    transition:left var(--dur-base) var(--ease-std),color var(--dur-fast)}
+  body.nav-open #leftTgl{left:min(86vw,calc(300px*var(--fsx)))}
+  /* 顶栏只留：返回 / 搜索 / 更多 */
+  #crumbs{display:none}
+  #top>#btnUp{display:none}
+  #qmode{display:none}
+  #gridwrap{padding:var(--sp-3)}
+  #batchBar{max-width:calc(100vw - var(--sp-3));overflow-x:auto}
+}
+
+@media (max-width:620px){
+  /* 触摸目标不小于约 40px */
+  #top .tbtn,#lb-top button,#lb-top select,#batchBar button,#filterChips button{
+    min-height:calc(40px*var(--fsx))}
+  #top{height:auto;min-height:var(--top-h);padding:var(--sp-2)}
+  /* 大图顶部操作条：横向滚动兜底已上移到 viewer.css 基础规则（L1，2026-09-27）——
+     620~980px 区间同样会放不下，窄屏这里只保留间距压缩 */
+  #lb-top{gap:var(--sp-1);padding:0 var(--sp-2)}
+  #lb-top .lname{flex:0 0 auto;max-width:36vw}
+  #lb-top .ldim{display:none}
+  #lb-top .acts{margin-left:0}
+  /* 详情面板 → 底部抽屉 */
+  #side{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;max-width:none;
+    height:min(58vh,calc(520px*var(--fsx)));border-left:none;border-top:1px solid var(--border2);
+    border-radius:var(--r-xl) var(--r-xl) 0 0;transform:translateY(103%);
+    transition:transform var(--dur-base) var(--ease-std);z-index:var(--z-panel)}
+  #side:not(.hidden){transform:none}
+  #side.hidden{transform:translateY(103%);margin-right:0}
+  #sideTgl{position:fixed;right:var(--sp-3);bottom:calc(var(--bot-h) + var(--sp-3));top:auto;
+    width:calc(42px*var(--fsx));height:calc(42px*var(--fsx));border-radius:var(--r-pill);z-index:var(--z-vbar);
+    border:1px solid var(--border2)}
+  #lbMid:has(> #side:not(.hidden)) #navR{right:var(--sp-2)}
+  #lbFilm{max-height:calc(72px*var(--fsx))}
+  /* 工具条：只剩视图/排序/批量，窄屏压缩间距即可 */
+  /* 620 @150% 下工具条多了「敏感内容」三态控件 ⇒ 间距再收一档：
+     gap 走 --sp-2 → --sp-1，内边距走 --pad-page → --sp-2。
+     后者与下面 `#top` 的窄屏处理同源（同一条策略，不是新发明）。
+     ⚠️ 别去改 `#gridBar #sort` 的 max-width：下拉的自然宽本来就小于上限，
+     实测改成 96px 收不到任何像素（无效改动）。 */
+  #gridBar{gap:var(--sp-1);padding-left:var(--sp-2);padding-right:var(--sp-2)}
+  #gridBar .glbl{display:none}
+  #gridBar #sort{max-width:calc(130px*var(--fsx))}
+  /* 底栏：页码可达 3 位数 × 10 个，只有中间的页码列表横向滚动，
+     左右箭头与「每页数量」始终固定可见 */
+  #bot{gap:var(--sp-2);padding:0 var(--sp-2);overflow:hidden}
+  #pager{flex:1 1 auto;min-width:0;max-width:none;gap:var(--sp-1)}
+  #pager .pgnums{flex:1 1 auto;gap:calc(2px*var(--fsx))}
+}
+
+@media (max-width:480px){
+  /* 只保留核心操作：品牌文字/视图切换收起，低频入口走「⋯ 更多」 */
+  #top .brand{display:none}
+  /* P1-30（2026-09-20）：此前这里写死 `minmax(140px,1fr)`，把密度滑块（它写 --card-min）
+     整个盖掉 ⇒ 窄屏下**滑块完全失效**。改为仍读 --card-min，只加一个「不小于 140px」的
+     下限（窄屏卡片太窄会挤成一团），并给 100% 上限防溢出 —— 这样滑块在窄屏也生效。 */
+  #grid{grid-template-columns:repeat(auto-fill,minmax(min(max(var(--card-min,140px),140px),100%),1fr))}
+  #lb-top button{padding:0 var(--sp-2)}
+  #batchBar{padding:var(--sp-1) var(--sp-2);gap:var(--sp-1)}
+  #toastStack>div{max-width:92vw}
+  #perPage{font-size:var(--fs-meta)}
+}

@@ -1,0 +1,123 @@
+/* ComfyMediaViewer · css/timeline.css
+   时间轴视图（V2.8.5）：竖向分组 + 吸顶组头 + 右侧日期索引栏。
+   要点：
+   - 滚动容器是 #gridwrap（不是窗口），所以组头 position:sticky;top:0 就是**贴内容区顶部**，
+     不必扣顶栏高度 --top-h；
+   - 吸顶组头必须有实色背景（--panel），否则下面的缩略图会从组头底下透出来；
+   - 竖轴/圆点走主题令牌（--tl-line / --tl-dot），浅色模式下才可见；
+   - 尺寸一律 clamp/vw/var(--fsx)，不写死像素。
+   加载顺序在 responsive.css 之前，窄屏覆盖写在文件末尾的媒体查询里。 */
+
+/* ---------- 时间轴子工具条（仅时间轴视图显示） ---------- */
+#tlBar{display:flex;align-items:center;gap:var(--gap-ctl);flex:none;
+  padding:calc(2px*var(--fsx)) var(--pad-page);background:var(--bg);
+  border-bottom:1px solid var(--border);font-size:var(--fs-sm);color:var(--tx2)}
+#tlBar[hidden]{display:none}
+#tlBar .glbl{font-size:var(--fs-meta);color:var(--tx3);flex:none;letter-spacing:var(--ls-tight)}
+#tlBar .grow{flex:1 1 auto;min-width:0}
+#tlBar .tlhint{font-size:var(--fs-meta);color:var(--tx3);white-space:nowrap}
+#tlBar button.sm{height:var(--h-ctl-sm);min-height:var(--h-ctl-sm);font-size:var(--fs-sm);flex:none}
+/* U4 收口：强度统一走 --dis-op（此前独立硬编码 .45，与全局 .55 两档不一）。 */
+#tlBar button.sm:disabled{opacity:var(--dis-op);color:var(--tx3);cursor:not-allowed}
+#tlGrain .segbtn{width:calc(30px*var(--fsx));font-size:var(--fs-meta)}
+#tlIdxTgl{display:none}
+
+/* ---------- 舞台：网格 + 右侧日期索引栏（两列，不覆盖内容） ---------- */
+#stageWrap{flex:1;display:flex;min-height:0;min-width:0;position:relative}
+#stageWrap>#gridwrap{flex:1 1 auto;min-width:0}   /* 补 min-width，否则索引栏会被压没 */
+
+#tlIndex{flex:none;width:var(--tl-index-w);overflow-y:auto;overflow-x:hidden;
+  border-left:1px solid var(--border);background:var(--bg);padding:0 0 var(--sp-2)}
+#tlIndex[hidden]{display:none}
+#tlIndex .ti-hd{position:sticky;top:0;z-index:var(--z-cap);background:var(--bg);
+  padding:calc(3px*var(--fsx)) var(--sp-2);font-size:var(--fs-meta);color:var(--tx3);
+  letter-spacing:var(--ls-tight);border-bottom:1px solid var(--border)}
+/* ---------- 索引项：U6（批次 A）补动的两处之一 ----------
+   时间轴此前是全站唯一零动效的视图（整文件 0 个 transition/animation）。
+   这里补上「选中/悬停底色」的过渡 —— 点击日期后底色瞬变在 scroll 密集型视图里最跳。
+   ⚠️ 组头阴影（.tl-head 的 --sh-tl-head）是**常驻**吸顶阴影，没有状态切换，
+      不需要过渡 —— 报告里「吸顶组头阴影瞬变」这一条不成立，已复核。 */
+#tlIndex .ti{display:flex;align-items:center;gap:var(--sp-1);width:100%;
+  padding:calc(3px*var(--fsx)) var(--sp-2);background:none;border:0;cursor:pointer;
+  color:var(--tx2);font-size:var(--fs-meta);text-align:left;border-radius:0;
+  min-height:0;height:auto;
+  transition:background-color var(--dur-fast) var(--ease-std),color var(--dur-fast) var(--ease-std)}
+#tlIndex .ti:hover{background:var(--hov);color:var(--tx)}
+#tlIndex .ti.on{background:var(--ac-soft);color:var(--ac2-tx);font-weight:var(--fw-semi)}
+#tlIndex .ti.on::before{content:"";flex:none;width:calc(3px*var(--fsx));height:calc(12px*var(--fsx));
+  margin-left:calc(-1*var(--sp-2));margin-right:calc(var(--sp-1) - var(--tl-dot-gap));
+  background:var(--tl-dot);border-radius:var(--r-pill);
+  box-shadow:0 0 0 calc(2px*var(--fsx)) var(--tl-ring)}
+#tlIndex .ti .ti-d{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tlIndex .ti .ti-n{flex:0 0 auto;color:var(--tx3);font-variant-numeric:tabular-nums}
+#tlIndex .ti.on .ti-n{color:var(--ac2-tx)}
+
+/* ---------- 吸顶组头：先把「内容框」推到滚动口顶边 ----------
+   实测（tl_probe.py）：sticky 的约束矩形是**滚动容器 #gridwrap 的内容框**，
+   而它的 padding-top 有 16px → 组头会钉在内容区顶下方 16px，那条 16px 缝里
+   缩略图会从组头上面滑过去。做法：时间轴下把 #gridwrap 的上内边距挪到 #grid 上，
+   内容框顶边 = 滚动口顶边，组头才真正贴住顶部。 */
+body.timeline #gridwrap{padding-top:0}
+body.timeline #grid{padding-top:var(--pad-page);padding-left:var(--tl-rail-w);position:relative}
+
+/* V29 竖轴：贯穿全内容的 1px 线，落在圆点圆心所在的 x（轨道内，卡片盖不到）。
+   组头是实色吸顶条，会盖住自己那一行 -> 视觉上「线在组头处断开、由圆点接续」，正是时间点的效果。 */
+body.timeline #grid::before{content:"";position:absolute;
+  left:calc(var(--sp-3) + var(--tl-rail-x));top:0;bottom:0;width:1px;
+  background:var(--tl-line);pointer-events:none;z-index:var(--z-img)}
+
+/* V29：组头跨满整行（负边距抵消 #grid 的左内边距；grid stretch 下宽度自动 +rail-w），
+   于是组头内 padding-left(--sp-3) 与圆点圆心正好压在竖线上。 */
+body.timeline #grid .card.tl-full{margin-left:calc(-1*var(--tl-rail-w))}
+
+/* ---------- 组头 / 组尾（合成条目：占满整行） ---------- */
+/* U6（批次 A）补动的第二处：组头/组尾的悬停底色。
+   ⚠️ 这里必须写**完整**的 transition 列表 —— 它整体覆盖 .card 基础态那条
+      （不含 background-color，所以 .tl-more 的悬停底色原本是瞬变）。
+   ⚠️ 显式 box-shadow:none 是**防御**：.tl-full 也是 .card，若哪天 .card 基础态
+      从当前的透明占位（--sh-0）改成实阴影，组头这种定高条会在上下各糊一道投影。
+   ⚠️ 保留 transform:none（**刻意**）：gallery.css 的 `.card:hover` 会上抬 1px，
+      而吸顶组头 .tl-head 也匹配本规则 —— 一旦放开，hover 时组头会离开吸顶位 1px 抖动。 */
+#grid .card.tl-full{grid-column:1 / -1;display:flex;flex-direction:row;align-items:center;gap:var(--sp-2);
+  min-height:calc(24px*var(--fsx));height:auto;width:auto;padding:calc(1px*var(--fsx)) var(--sp-3);
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--r-md);
+  cursor:pointer;transform:none;overflow:hidden;text-align:left;box-shadow:none;
+  transition:background-color var(--dur-base) var(--ease-std),border-color var(--dur-base) var(--ease-std),
+    box-shadow var(--dur-base) var(--ease-std),transform var(--dur-base) var(--ease-std)}
+#grid .card.tl-full:hover{transform:none;box-shadow:none;border-color:var(--border2)}
+#grid .card.tl-head{position:sticky;top:0;z-index:var(--z-lift);border-color:var(--border2);
+  box-shadow:var(--sh-tl-head)}
+/* V29：原 3px 竖条 -> 时间点圆点（--tl-dot 实心 + --tl-ring 光晕），圆心即竖线所在 x */
+#grid .card.tl-head .tl-rail{flex:none;width:calc(8px*var(--fsx));height:calc(8px*var(--fsx));
+  background:var(--tl-dot);border-radius:var(--r-pill);
+  box-shadow:0 0 0 calc(3px*var(--fsx)) var(--tl-ring)}
+#grid .card.tl-head .tl-ttl{flex:none;font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--tx);
+  white-space:nowrap}
+#grid .card.tl-head .tl-sub{flex:1 1 auto;min-width:0;font-size:var(--fs-meta);color:var(--tx3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#grid .card.tl-head .tl-tgl{flex:none;font-size:var(--fs-meta);color:var(--tx3);
+  width:calc(14px*var(--fsx));text-align:center;
+  display:flex;align-items:center;justify-content:center}
+#grid .card.tl-head .tl-tgl .iico{width:calc(11px*var(--fsx));height:calc(11px*var(--fsx))}
+#grid .card.tl-full.tl-more{justify-content:center;background:var(--panel2);
+  border-style:dashed;color:var(--tx2);font-size:var(--fs-sm)}
+#grid .card.tl-full.tl-more:hover{background:var(--panel3);color:var(--tx)}
+
+/* ---------- 窄屏：索引栏收成覆盖式抽屉（由「索引」按钮开合） ---------- */
+@media (max-width:900px){
+  /* V29：窄屏隐藏竖轴，卡片不再让出轨道（构想取舍：窄屏只留组头） */
+  body.timeline #grid{padding-left:0}
+  body.timeline #grid::before{content:none}
+  body.timeline #grid .card.tl-full{margin-left:0}
+  #tlIdxTgl{display:inline-flex}
+  #tlIndex{position:absolute;top:0;right:0;bottom:0;z-index:var(--z-drawer);display:none;
+    width:min(62vw,calc(230px*var(--fsx)));box-shadow:var(--sh-drawer)}
+  #tlIndex.open{display:block}
+}
+@media (max-width:620px){
+  /* 窄屏工具条可以横向滚，不换行、不裁切 */
+  #tlBar{gap:var(--sp-2);overflow-x:auto;padding-left:var(--sp-3);padding-right:var(--sp-3)}
+  #tlBar .glbl,#tlBar .tlhint{display:none}
+  #tlBar .grow{flex:0 0 var(--sp-2)}
+  #grid .card.tl-head .tl-sub{display:none}
+}

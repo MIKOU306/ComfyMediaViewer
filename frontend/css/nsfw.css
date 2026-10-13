@@ -1,0 +1,278 @@
+/* ============================================================
+   内容安全：NSFW 自动识别与显示切换（V2.11.0）
+   ============================================================
+   只负责「怎么显示」。分数和判定都在服务端，前端不参与。
+
+   一个必须说清楚的前提：**这层模糊是防误看，不是防查看**。
+   图片本身照常传输，模糊只是界面上的视觉滤镜，直接访问 /api/file 仍然拿得到原图。
+   所以这里的模糊强度只追求「不会一眼看清楚」，不追求「不可恢复」。
+   ============================================================ */
+
+/* ---------- 卡片：缩略图模糊 ----------
+   模糊加在 <img> 上而不是用 backdrop-filter：后者在不支持的环境里会悄无声息地
+   退化成「只加了一层半透明色」，等于敏感内容直接露了出来 —— 安全功能不能有这种
+   静默失效的失败模式。filter:blur() 是 CSS 里最基础的能力，到处都支持。
+   scale(1.06) 是为了盖掉模糊在边缘留下的半透明软边（卡片本身 overflow:hidden）。 */
+.card.nsfw > img,
+.card.nsfw > video{filter:blur(calc(16px*var(--fsx)));transform:scale(1.06)}
+.card.nsfw.revealed > img,
+.card.nsfw.revealed > video{filter:none;transform:none}
+/* 列表视图的缩略图只有 62×38，16px 的模糊会把它彻底抹成一团色块，
+   反而看不出「这里有一张图」。收窄到能辨认「有图但看不清」的程度。 */
+body.list-view #grid .card.nsfw > img,
+body.list-view #grid .card.nsfw > video{filter:blur(calc(6px*var(--fsx)));transform:none}
+body.list-view #grid .card.nsfw.revealed > img,
+body.list-view #grid .card.nsfw.revealed > video{filter:none}
+
+/* ---------- 卡片：Civitai 式遮挡层 ----------
+  布局：左上角红色眼睛按钮（**唯一**的揭开/盖回入口）+ 中央「大号眼睛+× + 文案」。
+  δ-1（用户截图反馈「模糊的图片上元素过多，UI 太杂乱」）：中央从 4 层降到 2 层 ——
+  · 删 .nv-rate（红色 NSFW 徽标）：整卡已模糊 + 盖着遮罩，再标一遍「这是 NSFW」是冗余
+  · 删 .nv-show（「显示」按钮）：揭开入口已收到左上角眼睛上，中央再放按钮是杂讯
+  · 补 .nv-icon（大号眼睛）：接替徽标的视觉锚点，一眼看出「这张被挡住了」
+  · .nv-conf（置信度）改为卡片 hover 才淡入 —— 它是辅助信息，不是首看内容
+
+  δ-2b（用户反馈）：**遮罩不再可点**。原先「整图任意位置点一下就能揭开」太容易误触，
+  改为解开 / 恢复都只走左上角那颗红眼 —— 遮罩退化成**纯视觉层**（pointer-events:none），
+  给不了任何点击反馈，也就不会被误当成「这里能点」。 */
+.nsfw-veil{position:absolute;inset:0;z-index:var(--z-chip);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:calc(11px*var(--fsx));pointer-events:none;
+  background:var(--ovl-veil);color:var(--ovl-tx);text-align:center;
+  text-shadow:var(--ovl-tx-sh)}
+
+/* 中央大号眼睛：接替被删的红色徽标，作为「这一张被挡住了」的视觉锚点。
+  ⚠️ 尺寸要跟着卡片走：卡片是 minmax(200px,1fr) 的流式宽度，固定像素在 665px 宽的大卡上
+  会显得太小、中央留白过大、视觉重心空。改用 clamp 随卡片宽度缩放：
+  小卡（200px）≈ 34px、大卡（665px）≈ 62px，两种尺寸都不失衡。
+  —— 这正是项目「禁写死像素」硬约束的适用场景。 */
+.nsfw-veil .nv-icon{display:flex;align-items:center;justify-content:center;
+  width:clamp(34px,8.5cqw,62px);height:clamp(34px,8.5cqw,62px);
+  opacity:.9;color:var(--ovl-tx);filter:drop-shadow(var(--ovl-tx-sh))}
+/* ⚠️ 必须给 .iico 本身定尺寸：layout.css 有全局 `.iico{width:16px;height:16px}`，
+  只写 svg{width:100%} 会以 16px 的 .iico 为参照 → 图标仍是 16px（实测踩过）。
+  这里用 width/height:100% 继承 .nv-icon 的 clamp 尺寸。 */
+.nsfw-veil .nv-icon .iico{display:block;width:100%;height:100%}
+.nsfw-veil .nv-icon .iico svg{width:100%;height:100%;display:block}
+/* 卡片需成为容器查询上下文（若浏览器不支持 cq 单位，上面的 clamp 会退回
+  width:34px 这个最小值 —— 仍可用，只是不随卡片放大）。 */
+.card.nsfw{container-type:inline-size}
+
+/* 文案升为动作指令（原「此图片已被标记」只是状态描述，用户不知道点了会发生什么），
+  字号同步随卡片放大一档，否则大卡上这行字会显得像注脚。 */
+.nsfw-veil .nv-ttl{font-size:clamp(calc(12px*var(--fsx)),3cqw,calc(17px*var(--fsx)));
+  font-weight:var(--fw-semi);letter-spacing:.4px}
+
+/* 置信度：默认不显示，hover 才淡入（帮用户判断「要不要信它」，但不是首看内容） */
+.nsfw-veil .nv-conf{font-size:clamp(calc(10px*var(--fsx)),2.2cqw,calc(13px*var(--fsx)));
+  opacity:0;transition:opacity var(--dur-fast) ease}
+.card.nsfw:hover .nsfw-veil .nv-conf{opacity:.85}
+
+/* 模糊态隐藏格式/尺寸角标：遮挡下尺寸无用，且它被下面的规则挤到 left:39px
+  与眼睛挤在同一行 —— 隐掉正好一并解决拥挤 */
+.card.nsfw .wicon{display:none}
+
+/* 眼睛按钮：默认降到 70% 不透明度（不是 55% —— 实测 55% 在深色缩略图上
+  几乎看不见，入口就丢了），hover 回满。 */
+.card.nsfw .nv-eye{opacity:.7;transition:opacity var(--dur-fast) ease}
+.card.nsfw:hover .nv-eye{opacity:1}
+
+/* 左上角眼睛：这一版的「单独看这张」入口。on 态换成中性色 + 划线眼，
+   一眼能看出「这张已经被我点亮了」，再点一下盖回去。 */
+.nv-eye{position:absolute;z-index:var(--z-ctl);cursor:pointer;
+  left:calc(6px*var(--fsx));top:calc(6px*var(--fsx));
+  width:calc(27px*var(--fsx));height:calc(27px*var(--fsx));
+  display:flex;align-items:center;justify-content:center;padding:0;
+  background:var(--err);color:var(--on-err);border:1px solid transparent;border-radius:50%;
+  box-shadow:var(--ovl-sh)}
+.nv-eye .iico{width:calc(16px*var(--fsx));height:calc(16px*var(--fsx))}
+.nv-eye:hover{background:var(--err-2)}
+.nv-eye.on{background:var(--panel3);color:var(--tx);border-color:var(--border2)}
+/* 眼睛占了左上角，格式/尺寸角标让位，别叠在一起 */
+/* δ-1：模糊态下 .wicon 已被 display:none（见上），这条规则已无实际作用；
+  **刻意保留不删** —— 万一将来恢复角标，又要重新推 39px 这个魔数。 */
+body:not(.list-view) #grid .card.nsfw .wicon{left:calc(39px*var(--fsx))}
+/* 已揭开：中央遮挡整层撤掉，眼睛留着（这样才盖得回去） */
+.card.nsfw.revealed .nsfw-veil{display:none}
+
+/* 列表视图：行高只有 48px，中央那套塞不下也不该塞 ——
+  只留模糊底 + 眼睛按钮。想看细节就点行打开大图。
+  δ-1：中央遮罩里现在只剩 .nv-icon（大号眼睛）这一个可见元素，
+  但列表视图有自己的 .nv-eye 按钮，中央再放一只眼睛就是两张眼睛叠在一起，
+  所以 .nv-icon 连同 .nv-ttl / .nv-conf 一起隐藏，遮罩只当一块模糊底。 */
+body.list-view #grid .card .nsfw-veil{
+  inset:auto;left:var(--sp-2);top:50%;transform:translateY(-50%);
+  width:calc(62px*var(--fsx));height:calc(38px*var(--fsx));
+  border-radius:var(--r-sm);gap:0;background:var(--ovl-veil-2)}
+body.list-view #grid .card .nsfw-veil .nv-icon,
+body.list-view #grid .card .nsfw-veil .nv-ttl,
+body.list-view #grid .card .nsfw-veil .nv-conf{display:none}
+body.list-view #grid .card .nv-eye{
+  left:calc(var(--sp-2) + var(--nv-eye-x));top:50%;transform:translateY(-50%);
+  width:calc(19px*var(--fsx));height:calc(19px*var(--fsx))}
+body.list-view #grid .card .nv-eye .iico{width:calc(12px*var(--fsx));height:calc(12px*var(--fsx))}
+
+/* ---------- 大图：舞台模糊 ---------- */
+/* L4（2026-09-28，用户实报）：屏蔽图进大图后**偶发黑色色块遮蔽模糊区、多在左上角**，
+   切走窗口再回来就消失 —— 这是 Chromium/WebView2 GPU 合成器的 stale surface 问题，
+   不是 CSS 写错：带 filter 的大元素走独立 render surface，两个触发窗：
+   ① 打开时：viewer.js 是 decoding="async" + src 同帧挂 blur，blur pass 可能跑在
+      解码完成之前，tile 被标记「已就绪」不再失效 → 黑块驻留（光栅化从左上开始，
+      所以黑块多在左上角）；切窗口 = 全量 invalidate 重新光栅化 → 消失，与实报吻合。
+   ② 缩放/平移时：bindZoom 改 style.transform，filter 层重投影期间 tile 部分重光栅化 +
+      大半径 blur 的 downsample 链中间纹理复用，同样出 stale tile。
+   两个结构性减负（遮蔽强度不降）：
+   ① 半径封顶 min(calc(46px*var(--fsx)),64px) —— 原式无封顶，fsx=1.5 时 69px，
+      blur 的 GPU 开销随半径与中间纹理面积膨胀；封顶后只有 fsx≥1.4 的极端字号微降，
+      64px 与 46px 都远超「完全不可辨认」的阈值，防护不减。
+   ② will-change:filter,transform —— blur 层常驻独立合成层：class 挂/摘不再重建
+      层结构（合并/拆分正是 stale surface 高发路径）；缩放平移走合成器重投影，
+      少触发整层重光栅化。与 bindZoom 写 style.transform 不冲突（一个声明提示、
+      一个内联赋值，互不覆盖）。
+   ⚠️ 若实机仍偶发：核选项是 WebView2 additionalBrowserArguments 加
+   --disable-gpu-compositing（软件合成 100% 绕过，代价整体性能），不默认开。 */
+#stage.nsfw-blur > img,
+#stage.nsfw-blur > video{filter:blur(min(calc(46px*var(--fsx)),64px));
+  will-change:filter,transform}
+/* 注意：这里**故意不设 cursor:pointer** —— 大图没有「点舞台揭开」这条路径
+   （拖拽平移/滚轮缩放会让手势误触发揭开，见 viewer.js 顶部的权衡注释），
+   揭开入口只有左上角眼睛。以前挂着 pointer 却无点击行为，
+   等于引导用户去点一个没反应的区域。 */
+/* V2.11.2：黄色提示条 #lbNsfw 整组样式已随元素一起删除 ——
+   揭开走 #lbEye，纠正走 #lbNsfwCls，横幅是重复的第三入口。 */
+
+/* ---------- 大图：左上角眼睛 + 胶片条模糊（V2.11.1）---------- */
+/* 复用 .nv-eye 的底子（红底圆钮 / on 态中性色），只改位置与尺寸：
+   舞台比卡片大得多，34px 才够点；贴边 12px 避开圆角和 navL。 */
+#lbEye{position:absolute;z-index:var(--z-ctl);
+  left:calc(12px*var(--fsx));top:calc(12px*var(--fsx));
+  width:calc(34px*var(--fsx));height:calc(34px*var(--fsx))}
+#lbEye .iico{width:calc(18px*var(--fsx));height:calc(18px*var(--fsx))}
+/* .nv-eye 自带 display:flex，会压过 UA 的 [hidden] —— 必须显式扳回来 */
+#lbEye[hidden]{display:none}
+
+/* 胶片条缩略图：小图用轻模糊（与列表视图同档 6px），
+   目的只是「扫缩略图时不被溅一脸」，看细节自然会点开大图 —— 那里有闸门。 */
+#lbFilm .f.nsfw img{filter:blur(calc(6px*var(--fsx)))}
+#lbFilm .f.nsfw.revealed img{filter:none}
+
+/* ---------- 工具条上的三态切换（V2.11.0）----------
+   一个容器里装下「标签 + 三档」：左边红色眼睛的「敏感内容」，右边三个档位。
+   标签用的是危险色浅底、容器同款圆角 —— 和卡片左上角的眼睛同一个颜色语义，
+   用户扫一眼就知道这排按钮管的是那些被挡住的图，且它是一组、不是一个框加三个按钮。
+   刻意只写 #nsfwSeg / .seg-nsfw 变体，**不动全局 .seg**：视图 / 排序 / 密度档那些
+   分段控件还靠原样式，改全局会一起变样。 */
+#nsfwCtl{display:flex;align-items:center;flex:none}
+.seg-nsfw{gap:calc(2px*var(--fsx))}
+.nsfw-lbl{display:inline-flex;align-items:center;gap:calc(4px*var(--fsx));
+  height:calc(22px*var(--fsx));padding:0 calc(8px*var(--fsx));margin-left:1px;
+  background:var(--err-bg);border-radius:calc(4px*var(--fsx));
+  color:var(--err-tx);font-size:var(--fs-meta);font-weight:var(--fw-semi);
+  letter-spacing:var(--ls-tight);white-space:nowrap;cursor:default;user-select:none}
+.nsfw-lbl .ic{display:flex;align-items:center;justify-content:center}
+.nsfw-lbl .iico{width:calc(12px*var(--fsx));height:calc(12px*var(--fsx))}
+/* δ-1（用户反馈「成人内容这几个字太显眼」）：
+   ① 文案「成人内容」→「敏感内容」（见 index.html / settings.js）—— 不在这一层。
+   ② 红眼睛**保留**（它是「这排按钮管的是被挡住的图」的颜色语义锚点，删掉就丢了指向），
+      但把饱和降到 60%：满饱和的 --err 红在浅底工具条上过于抢眼，是整个顶栏最跳的元素。
+      用 filter:saturate(.6) 而不是换一个更灰的红令牌 —— 令牌还要给卡片眼睛/大图眼睛共用，
+      那里需要保持满饱和以示「危险」，只在这里收，作用域最小。
+      ⚠️ 只挂 .ic（红眼睛图标）不挂整块标签：文字已经是 --err-tx 的浅红，
+      再叠 filter 会连文字一起发灰，反而读不清。
+      ⚠️ 这里刻意是 filter:none —— 基础（就绪）态红眼**本色满饱和**：
+      「正在保护」要靠本色红来讲。降饱和只发生在「未检测」态（下方 .undetected），
+      那里引擎虽在、却一次没跑过，红眼不该冒充「正在拦」。 */
+.nsfw-lbl .ic{filter:none}
+.nsfw-lbl:hover .ic{filter:none}
+
+/* 三档按钮：auto 宽（28px 放两个汉字太挤），选中态用主色实底 + 白字 ——
+   比全局那层「浅浅一块」清楚得多，一眼能看出现在停在哪一档。 */
+.seg-nsfw .segbtn{width:auto;min-width:calc(44px*var(--fsx));height:calc(22px*var(--fsx));
+  padding:0 calc(11px*var(--fsx));font-size:var(--fs-meta);font-weight:var(--fw-semi);
+  letter-spacing:var(--ls-tight);border-radius:calc(4px*var(--fsx))}
+.seg-nsfw .segbtn:hover{color:var(--tx)}
+.seg-nsfw .segbtn.on{background:var(--ac);color:var(--on-ac);box-shadow:none}
+.seg-nsfw .segbtn.on:hover{background:var(--ac2);color:var(--on-ac)}
+
+/* 未就绪的两态（V2.12.6）——
+   用户实报的假成功：装了引擎但**一次没跑过检测**时，控件是好的、点了有反应、
+   还弹「已隐藏 NSFW 内容」，可一张图都没被过滤（列表里全是 unknown）。
+   控件「报成功」而实际什么都没干，比直接置灰更糟 —— 用户会以为图已经安全了。
+
+   于是把「引擎装没装」和「跑没跑过」拆成两态，颜色 / 文案 / 出路都不同：
+
+     .undetected  引擎在、没跑过  → **琥珀**（--warn 系）：
+                  这不是「坏了」，是「还没开始」，用错误红会把用户吓成以为功能报废。
+     .noengine    引擎不可用      → 保持置灰，且红眼**去色变灰**：
+                  用户补充要求 —— 没装插件时红眼还留着危险色的暗示，
+                  会让人以为「敏感内容正被拦着」，而实际上一点保护都没有。
+
+   两态互斥（见 settings.js 的 nsfwSyncUI，由同一次调用分派）。 */
+
+/* ---- 未检测：琥珀提醒 ---- */
+#nsfwCtl.undetected .nsfw-lbl{background:var(--warn-bg);color:var(--warn-tx)}
+/* 红眼**保留降饱和 60%**（δ-1 的基线），不写 filter:none ——
+   未检测态不是「就绪」，红眼不该回到满饱和冒充「正在拦」；
+   也不是 noengine 的 saturate(0)（那是「引擎都不在」）。
+   ⚠️ 破损修复（δ-2c 顺带）：这一行曾变成 filter:none，门禁 A6 +
+   两条实测断言（未检测态 ic.filter 含 saturate(0.6) 且不含 saturate(0)）就是钉它的。 */
+#nsfwCtl.undetected .nsfw-lbl .ic{filter:saturate(.6)}
+#nsfwCtl.undetected .segbtn{cursor:pointer}
+/* ⚠️ 不整组 opacity 降透明度 —— 没跑过检测时三档本身是**该点**的（点了给引导），
+   压暗会被读成「也是灰的、不能点」，和 noengine 混成一回事。 */
+#nsfwCtl.undetected .nsfw-lbl{cursor:pointer}
+
+/* ---- 引擎不可用：整组置灰 + 红眼去色（**不隐藏**）----
+   用户得知道有这个东西，以及为什么用不了。 */
+#nsfwCtl.noengine{opacity:.45}
+#nsfwCtl.noengine .segbtn{cursor:not-allowed}
+#nsfwCtl.noengine .nsfw-lbl{cursor:help}
+/* 红眼去色：saturate(0) 把 --err 的红色抽干成灰。
+   ⚠️ 刻意**不**同时降 brightness —— 整组已经 opacity:.45，再压会连形状都看不清，
+      「有这个东西」的告知目的就丢了。这里只要它「不再是红的」。
+   ⚠️ 规则必须排在 .nsfw-lbl .ic{filter:saturate(.6)} 之后，否则被后者覆盖（同权重后者赢）。 */
+#nsfwCtl.noengine .nsfw-lbl .ic{filter:saturate(0)}
+/* 未就绪态下，hover 不该把灰眼睛又「点亮」回红（.nsfw-lbl:hover .ic{filter:none} 会这么干） */
+#nsfwCtl.noengine .nsfw-lbl:hover .ic{filter:saturate(0)}
+#nsfwCtl.undetected .nsfw-lbl:hover .ic{filter:saturate(.6)}
+
+/* ---- 「开始检测」脉冲高亮（nsfwNudge 引导 / 首次检测完成后收束）----
+   用 box-shadow 呼吸而不是改配色：不改按钮的身份色，只借一圈光把人指过去。
+   ⚠️ prefers-reduced-motion 下不动画，只留一圈静态描边 —— 动效是加料，不是信息。 */
+@keyframes nsfwPulse{
+  0%  {box-shadow:0 0 0 0 var(--warn-bd)}
+  70% {box-shadow:0 0 0 calc(7px*var(--fsx)) transparent}
+  100%{box-shadow:0 0 0 0 transparent}
+}
+#nsfwScan.flash{animation:nsfwPulse var(--dur-pulse) ease-out 2;outline:2px solid var(--warn-bd);outline-offset:1px}
+@media (prefers-reduced-motion:reduce){
+  #nsfwScan.flash{animation:none}
+}
+
+/* ---- 设置页「未检测」警示行 ---- */
+.set-gh.nsfw-mode-warn{
+  color:var(--warn-tx);background:var(--warn-bg);border:1px solid var(--warn-bd);
+  border-radius:calc(4px*var(--fsx));padding:calc(6px*var(--fsx)) calc(9px*var(--fsx));
+  margin-top:calc(2px*var(--fsx));font-weight:var(--fw-semi)}
+
+/* 窄窗口 / 大字号：工具条放不下完整标签时只留红眼睛图标，含义靠提示与三档文字撑住。
+   ⚠️ 断点为什么是 1440 而不是 1180：`@media` 只按**视口宽**判，完全不知道 `--fsx`
+   的存在（layout.css 里也写过同一条限制）。1280 视口 @150% 时 #left 吃掉 390px，
+   `#gridBar` 只剩 890，而这段控件自己要 331 —— 1180 的断点在这个组合下不触发，
+   四个汉字的标签白占 71px，把工具条末尾的 `#btnBatch` 挤出视口（实测溢出 42px；
+   620px @150% 是 100px，见下面那一档）。设计规范要求「1280/1024/900/760/620… 无横向滚动条」。
+   红眼睛图标（.nsfw-lbl 的 .ic）**刻意保留**：它是「这排按钮管的是那些被挡住的图」的
+   颜色语义锚点（和卡片左上角的眼睛同色），收掉的只是那四个汉字。 */
+@media (max-width:1440px){
+  .nsfw-lbl-txt{display:none}
+  .nsfw-lbl{padding:0 calc(5px*var(--fsx))}
+}
+
+/* ≤620：工具条最挤的一档（左栏已收成抽屉，但 #sort / 视图 / 展示方式都在）。
+   三档按钮收内边距与 min-width —— 实测 2 个汉字 × --fs-meta 在 fsx=1.5 时约 33px，
+   加内边距后仍 ≥40px，不破窄屏触摸目标下限；排序下拉上限同步收窄。 */
+@media (max-width:620px){
+  .nsfw-lbl{padding:0 calc(3px*var(--fsx))}
+  .seg-nsfw{gap:calc(1px*var(--fsx))}
+  .seg-nsfw .segbtn{min-width:calc(26px*var(--fsx));padding:0 calc(3px*var(--fsx))}
+}

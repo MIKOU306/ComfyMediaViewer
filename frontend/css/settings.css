@@ -1,0 +1,282 @@
+/* ComfyMediaViewer · css/settings.css
+   批次 2 新增样式层（V1 设置面板 / V21 密度档位 / V2 顶栏角标 / V3 底栏状态中枢）。
+   规则：颜色 / 字号 / 间距 / 圆角 / 阴影 / 层级一律取 tokens.css 的令牌；
+        尺寸 `calc(N * var(--fsx))`；z-index 只从 tokens.css 第 8 节的层级刻度里挑。
+        本文件在 responsive.css **之前**引入（见 index.html），窄屏覆盖写在第 5 节。 */
+
+/* ============================================================
+   1. 设置面板（V1）—— 右侧抽屉
+   为什么是抽屉而不是居中弹窗：设置是「边调边看」的场景，改密度、改字号都要立刻
+   看到网格的反应。居中弹窗会把网格整块盖住，只能「改一次 → 关窗 → 看结果 → 再打开」；
+   抽屉从右侧滑出，左侧网格始终可见、实时重排。遮罩只压一层淡色，保留「网格还在那儿」。
+   ============================================================ */
+#setMask{position:fixed;inset:0;z-index:var(--z-mask);background:var(--mask-normal);
+  display:flex;justify-content:flex-end;
+  visibility:hidden;opacity:0;                       /* 关：不可见且不参与命中测试 */
+  transition:opacity var(--dur-base) var(--ease-std),
+             visibility 0s linear var(--dur-base)}   /* visibility 延到淡出结束后再切 */
+#setMask.on{visibility:visible;opacity:1;
+  transition:opacity var(--dur-base) var(--ease-std)}
+#setPanel{width:min(92vw,calc(440px*var(--fsx)));height:100%;min-height:0;
+  background:var(--panel);border-left:1px solid var(--border2);box-shadow:var(--sh-drawer);
+  display:flex;flex-direction:column;
+  transform:translateX(100%);
+  transition:transform var(--dur-slow) var(--ease-out)}
+#setMask.on #setPanel{transform:none}
+
+/* ---- 面板头：标题 + 版本号 + 关闭 ---- */
+.set-hd{display:flex;align-items:center;gap:var(--sp-2);flex:none;
+  padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--border)}
+.set-hd b{font-size:var(--fs-h2);font-weight:var(--fw-semi);color:var(--tx)}
+.set-hd .set-hint{font-size:var(--fs-meta);color:var(--tx3);
+  font-variant-numeric:var(--num);letter-spacing:var(--ls-tight)}
+.set-hd .grow{flex:1;min-width:0}
+#hintClose{width:var(--h-ctl-sm);min-height:var(--h-ctl-sm);height:var(--h-ctl-sm);
+  padding:0;font-size:var(--fs-ui);border-radius:var(--r-sm)}
+
+/* ---- 页签条：外观 / 行为 / 数据 / 关于（等宽四等分，下沿一条强调色指示条）---- */
+.set-tabs{display:flex;gap:1px;flex:none;padding:0 var(--sp-3);
+  border-bottom:1px solid var(--border);background:var(--panel)}
+.set-tab{flex:1 1 0;min-width:0;height:calc(34px*var(--fsx));min-height:calc(34px*var(--fsx));
+  border-radius:0;padding:0 var(--sp-1);font-size:var(--fs-ui);color:var(--tx3);
+  border-bottom:2px solid transparent;background:transparent}
+.set-tab:hover{background:transparent;color:var(--tx)}
+.set-tab.on{color:var(--ac-tx);border-bottom-color:var(--ac);font-weight:var(--fw-semi)}
+.set-tab[aria-selected="true"]{color:var(--ac-tx);border-bottom-color:var(--ac)}
+
+/* ---- 内容区：可滚动；每页只挂当前页（.set-page）---- */
+.set-body{flex:1 1 auto;min-height:0;overflow:auto;padding:var(--sp-4)}
+.set-page{display:none;flex-direction:column;gap:var(--sp-4)}
+.set-page.on{display:flex}
+
+/* ---- 设置分组：小标题 + 控件 + 灰色说明 ---- */
+.set-grp{display:flex;flex-direction:column;gap:var(--sp-2)}
+.set-gl{display:flex;align-items:baseline;gap:var(--sp-2);flex-wrap:wrap;
+  font-size:var(--fs-micro);font-weight:var(--fw-semi);color:var(--tx2);letter-spacing:var(--ls-wide);text-transform:none}
+.set-gd{font-size:var(--fs-micro);font-weight:var(--fw-normal);color:var(--tx3);letter-spacing:0}
+.set-gh{font-size:var(--fs-meta);color:var(--tx3);line-height:var(--lh-loose)}
+/* B1-3（2026-10-09）：数据目录不可写时的告警行。
+   与 nsfw.css 的 .set-gh.nsfw-mode-warn 同构，只是改用危险色 —— 这条比「未检测」
+   严重：它意味着用户刚才改的设置、收藏、标签**重启后会全部回原样**。 */
+.set-gh.data-warn{
+  color:var(--err-tx);background:var(--err-bg);border:1px solid var(--err-bd);
+  border-radius:calc(4px*var(--fsx));padding:calc(6px*var(--fsx)) calc(9px*var(--fsx));
+  margin-top:calc(2px*var(--fsx));font-weight:var(--fw-semi)}
+/* E5-6（2026-09-23）：分组内「控件 + 按钮」一行。
+   此前是 index.html 上的内联 `display:flex;gap:6px;align-items:center` —— 6px 不在间距刻度上，
+   且不随 --fsx 缩放。**显式记账**：取 --sp-2（8px）向刻度归位，比原值宽 2px
+   （同文件的 .set-hd / .set-btns 都用 --sp-2）；这是本批唯一一处肉眼可见的尺寸变化。
+   ⚠️ 名字**不能**叫 .set-row —— 这个类名已被下方「设置项表格行」占用（带 padding + 背景色），
+   复用它会让这一行被叠加上表格行的内边距和底色。 */
+.set-ctl-row{display:flex;align-items:center;gap:var(--sp-2)}
+/* 面板里的整宽按钮（自动刷新 / 重启 / 缩略图 / 快捷键）左对齐图标+文字 */
+.set-wide{width:100%;justify-content:flex-start;background:var(--panel2);border:1px solid var(--border);
+  color:var(--tx2);min-height:var(--h-ctl)}
+.set-wide:hover{background:var(--panel3);border-color:var(--border2);color:var(--tx)}
+.set-btns{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+.set-btns button{flex:1 1 auto;background:var(--panel2);border:1px solid var(--border);
+  color:var(--tx2);min-height:var(--h-ctl)}
+.set-btns button:hover{background:var(--panel3);border-color:var(--border2);color:var(--tx)}
+/* H5（2026-10-06）：带图标槽的按钮。
+   ⚠ 只对 .set-icb 生效，**不能**写进上面那条通用的 `.set-btns button` ——
+     display 由默认的 inline-block（文字居中）改成 inline-flex 后，文字会跑到左边，
+     把「维护」区四个纯文字按钮的对齐一起改掉。这两个按钮的图标沿用 V4 图标集
+     （dupe / chart），在隐藏宿主里就是这个尺寸。 */
+.set-btns button.set-icb{display:inline-flex;align-items:center;justify-content:center;
+  gap:calc(4px*var(--fsx))}
+.set-btns button.set-icb .ic{display:flex;align-items:center;justify-content:center;flex:none}
+.set-btns button.set-icb .iico{width:calc(14px*var(--fsx));height:calc(14px*var(--fsx))}
+
+/* ---- 键值行（数据目录 / 占用 / 运行环境）---- */
+.set-kv{display:flex;align-items:center;gap:var(--sp-2)}
+.set-kv code{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-family:var(--mono);font-size:var(--fs-meta);color:var(--code-tx);
+  background:var(--code-bg);border:1px solid var(--border);border-radius:var(--r-sm);
+  padding:0 var(--sp-2);height:var(--h-ctl-sm);line-height:calc(22px*var(--fsx))}
+.set-kv button{flex:none;background:var(--panel2);border:1px solid var(--border);
+  color:var(--tx2);min-height:var(--h-ctl-sm);height:var(--h-ctl-sm)}
+.set-kv button:hover{background:var(--panel3);border-color:var(--border2);color:var(--tx)}
+.set-rows{display:flex;flex-direction:column;border:1px solid var(--border);
+  border-radius:var(--r-md);overflow:hidden}
+.set-row{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);
+  font-size:var(--fs-sm);background:var(--panel2)}
+.set-row+.set-row{border-top:1px solid var(--border)}
+.set-row span{flex:1 1 auto;min-width:0;color:var(--tx3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.set-row b{flex:none;color:var(--tx);font-weight:var(--fw-semi);font-variant-numeric:var(--num)}
+
+/* ---- F26 索引进度条 ----
+   三态而非一条空槽：进行中（.building，蓝，且建索引期间面板会跟着刷）/
+   已就绪（.ready，绿）/ 尚未建立（默认，灰）。轨道 6px —— 比 1px 发丝线粗到看得见，
+   又比按钮矮一截，不跟下面的占用行抢视线。
+   注意 .set-fill 有 width 过渡：读取宽度做断言前必须等过渡结束（本仓老坑）。 */
+.set-prog{display:flex;flex-direction:column;gap:var(--sp-1)}
+.set-prog .set-track{height:calc(6px*var(--fsx));border-radius:var(--r-pill);
+  background:var(--panel3);border:1px solid var(--border);overflow:hidden}
+.set-prog .set-fill{display:block;height:100%;width:0;border-radius:var(--r-pill);
+  background:var(--tx3);
+  transition:width var(--dur-slow) var(--ease-std),
+             background-color var(--dur-base) var(--ease-std)}
+.set-prog.building .set-fill{background:var(--ac2)}
+.set-prog.ready .set-fill{background:var(--ok)}
+.set-prog .set-pline{display:flex;align-items:baseline;justify-content:space-between;
+  gap:var(--sp-2);font-size:var(--fs-meta);color:var(--tx3)}
+.set-prog .set-pline span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.set-prog .set-pline b{flex:none;color:var(--tx2);font-weight:var(--fw-semi);font-variant-numeric:var(--num)}
+.set-prog.building .set-pline span{color:var(--ac2-tx)}
+@media (prefers-reduced-motion: reduce){
+  .set-prog .set-fill{transition:none}
+}
+
+/* ---- 面板内「整宽等分」分段控件：V21 密度档位 / F28 数据目录位置共用同一套口径 ----
+   写成共享的 .seg-wide 而不是各写一份：两处视觉必须一致，复制必然漂移。
+   原先这套规则叫 .dens-preset（只服务 V21 密度档位），F28 的数据目录位置要复用同一口径，
+   于是抽出通用名，密度档位改挂 .seg-wide —— 一个视觉只留一个名字。 */
+.seg-wide{width:100%;box-sizing:border-box}
+.seg-wide .segbtn{flex:1 1 0;width:auto;min-width:0;height:calc(26px*var(--fsx));
+  min-height:calc(26px*var(--fsx));padding:0 var(--sp-2);
+  font-size:var(--fs-sm);color:var(--tx3)}
+.seg-wide .segbtn:hover{color:var(--tx)}
+.seg-wide .segbtn.on{background:var(--panel);color:var(--ac-tx);font-weight:var(--fw-semi);
+  box-shadow:var(--sh-xs)}
+
+/* ---- 面板内的密度 / 字号滑块（复刻左栏口径，但作用域不同，必须自带一份）----
+   注：原先这套规则写在 layout.css 且选择器前缀是 `#left`，控件搬进 #setPanel 后
+   全部失配。这里是同一套视觉的重建版本，改样式时两处都要照顾到。 */
+#setPanel .densWrap{display:flex;flex-direction:column;gap:var(--sp-1)}
+#setPanel .densWrap .dhead{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-1)}
+#setPanel .densWrap .dlabel{font-size:var(--fs-micro);color:var(--tx2);letter-spacing:var(--ls-tight)}
+#setPanel .densWrap .dval{font-size:var(--fs-micro);color:var(--ac-tx);font-variant-numeric:var(--num)}
+#setPanel .densWrap .dtick{display:flex;justify-content:space-between;
+  font-size:calc(9.5px*var(--fsx));color:var(--tx3);padding:0 1px}
+#setPanel input[type=range]{width:100%;margin:0}
+#setPanel select{width:100%;min-width:0;max-width:none}
+
+/* ============================================================
+   2. 顶栏回收站角标（V2）
+   回收站升为顶栏独立入口后，光有图标看不出「里面有没有东西」——每次都得点开才知道，
+   于是「删完想确认一下」这个高频动作变成两次点击。角标把「有 N 件待处理」摆在脸上。
+   ============================================================ */
+.tbadge{position:absolute;top:calc(1px*var(--fsx));right:calc(1px*var(--fsx));
+  min-width:calc(14px*var(--fsx));height:calc(14px*var(--fsx));
+  padding:0 calc(3px*var(--fsx));box-sizing:border-box;border-radius:var(--r-pill);
+  background:var(--err);color:var(--on-err);font-size:calc(9px*var(--fsx));font-weight:var(--fw-bold);
+  line-height:calc(14px*var(--fsx));text-align:center;font-variant-numeric:var(--num);
+  box-shadow:0 0 0 2px var(--panel);pointer-events:none}
+#top .tbtn{position:relative}          /* 角标定位基准 */
+#btnTrash.has-badge{color:var(--err-tx)}
+#btnTrash.has-badge .ic{color:var(--err-tx)}
+
+/* ============================================================
+   3. 底栏状态中枢（V3）
+   原先左侧是写死的「已就绪」（一个静态圆点 + 三个字），它既不反映后台在干什么，
+   也没有地方挂「有新图到了」这类需要用户动作的提示。改为状态位：
+     点 + 文字（.idle/.busy/.warn/.err 四态配色）+ 右端行动按钮（#botAct，按需出现）。
+   色板沿用状态色令牌，四态只改点色与文字色，不改变高度与占据宽度量级。
+   ============================================================ */
+#botState{display:inline-flex;align-items:center;gap:var(--sp-1);
+  min-width:0;max-width:calc(320px*var(--fsx))}
+#botState .dot{width:calc(6px*var(--fsx));height:calc(6px*var(--fsx));border-radius:50%;
+  flex:none;background:var(--ok);transition:background-color var(--dur-base) var(--ease-std)}
+#botState #botMsg{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#botState.idle{color:var(--tx3)}
+#botState.idle .dot{background:var(--ok)}
+#botState.busy{color:var(--tx2)}
+#botState.busy .dot{background:var(--ac2);animation:botPulse var(--dur-loop) var(--ease-std) infinite}
+#botState.warn{color:var(--warn-tx)}
+#botState.warn .dot{background:var(--warn)}
+#botState.err{color:var(--err-tx)}
+#botState.err .dot{background:var(--err)}
+#botState.done{color:var(--ok-tx)}
+#botState.done .dot{background:var(--ok)}
+@keyframes botPulse{0%,100%{opacity:1}50%{opacity:.30}}
+/* 行动按钮（「查看」新图 / 「重试」等）：文字按钮，高度与底栏同厚，不抢视觉 */
+.bot-act{flex:none;height:calc(20px*var(--fsx));min-height:calc(20px*var(--fsx));
+  padding:0 var(--sp-2);border-radius:var(--r-sm);font-size:var(--fs-meta);
+  background:var(--ac-soft);color:var(--ac-tx);border:1px solid transparent;font-weight:var(--fw-semi)}
+.bot-act:hover{background:var(--ac);color:var(--on-ac)}
+/* reduced-motion：脉冲点停掉（与 base.css 的全局降级同口径） */
+@media (prefers-reduced-motion: reduce){
+  #botState.busy .dot{animation:none}
+}
+
+/* ============================================================
+   4. 亮色主题微调
+   抽屉与角标都吃通用令牌，多数无需重映射；只有两处阴影/描边在浅底上要收敛，
+   以免出现「深色投影压在白面板上发脏」。
+   ============================================================ */
+html[data-theme="light"] .tbadge{box-shadow:0 0 0 2px var(--panel)}
+
+/* ============================================================
+   5. 窄屏（放在本文件末尾，早于 responsive.css 的引入位置 —— 但针对的是
+      本文件自己的选择器，与 responsive.css 不冲突）
+   ============================================================ */
+@media (max-width:620px){
+  #setPanel{width:100%;max-width:100%;border-left:none}
+  #setPanel .seg-wide .segbtn{font-size:var(--fs-meta)}
+  #botState{max-width:calc(160px*var(--fsx))}
+}
+
+/* ============================================================
+   6. 快捷键速查面板（V17）
+   为什么换掉原「一行 nowrap」：`#hintPanel` 是单行不换行，条目早排到超宽
+   （`/` `←→` `Esc` `F` `T` `[ ]` `Del` `P` `空格` …），再加一条就溢出；
+   改为**按用途分组**的卡片，组内是「键帽 + 说明」两列，宽度自适应列数。
+   层级取 --z-mask2（800）而不是弹窗用的 --z-mask（400）：菜单在 500，`?` 可能在
+   右键菜单开着的时候被按到，压在菜单下面会像是没反应。
+   ============================================================ */
+#hintMask{position:fixed;inset:0;z-index:var(--z-mask2);background:var(--mask-normal);
+  display:flex;align-items:center;justify-content:center;padding:var(--sp-4);
+  visibility:hidden;opacity:0;                       /* 关：不可见且不参与命中测试 */
+  transition:opacity var(--dur-base) var(--ease-std),
+             visibility 0s linear var(--dur-base)}
+#hintMask.on{visibility:visible;opacity:1;
+  transition:opacity var(--dur-base) var(--ease-std)}
+#hintPanel{width:min(94vw,calc(720px*var(--fsx)));max-height:min(86vh,calc(560px*var(--fsx)));
+  min-height:0;background:var(--panel);border:1px solid var(--border2);
+  border-radius:var(--r-xl);box-shadow:var(--sh-drawer);
+  display:flex;flex-direction:column;
+  transform:translateY(calc(10px*var(--fsx)));
+  transition:transform var(--dur-slow) var(--ease-out)}
+#hintMask.on #hintPanel{transform:none}
+
+/* 正文：按可用宽度自动分列（窄屏 1 列、宽屏 3 列），组内行不等高不拉伸 */
+.hint-body{flex:1 1 auto;min-height:0;overflow:auto;padding:var(--sp-4);
+  display:grid;align-content:start;gap:var(--sp-3) var(--sp-4);
+  grid-template-columns:repeat(auto-fit,minmax(calc(190px*var(--fsx)),1fr))}
+.hint-grp{display:flex;flex-direction:column;gap:calc(2px*var(--fsx))}
+.hint-gl{font-size:var(--fs-micro);font-weight:var(--fw-semi);color:var(--tx2);letter-spacing:var(--ls-wide);
+  padding-bottom:calc(4px*var(--fsx));border-bottom:1px solid var(--border);
+  margin-bottom:calc(2px*var(--fsx))}
+.hint-row{display:grid;grid-template-columns:calc(78px*var(--fsx)) 1fr;
+  align-items:center;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--tx2);min-height:calc(20px*var(--fsx))}
+/* 键帽：底边加粗 1px 做出「键」的手感，宽度按内容自适应但至少一个字符宽 */
+.hint-keys{display:flex;flex-wrap:wrap;gap:calc(3px*var(--fsx))}
+.hint-keys kbd{font-family:var(--mono);font-size:var(--fs-meta);color:var(--tx);
+  background:var(--panel3);border:1px solid var(--border2);border-bottom-width:2px;
+  border-radius:var(--r-sm);padding:0 calc(5px*var(--fsx));
+  min-width:calc(20px*var(--fsx));text-align:center;white-space:nowrap}
+.hint-row span{color:var(--tx3);min-width:0;overflow-wrap:anywhere}
+
+/* reduced-motion：与抽屉同口径，直接不做位移/淡入 */
+@media (prefers-reduced-motion: reduce){
+  #hintMask,#hintPanel{transition:none}
+}
+
+/* P1-29（2026-09-20）：原先这里和 #setMask 各有一条 `html[data-theme="light"] …{background:…}`，
+   现在遮罩底色统一由 tokens.css 的 --mask-* 令牌管理（亮色取值也写在那边），
+   本文件不再重复覆盖 —— 删掉是为了「同一视觉量只有一个定义处」，避免以后改了令牌这里又盖住。 */
+
+@media (max-width:620px){
+  #hintMask{padding:var(--sp-2)}
+  #hintPanel{width:100%;max-height:88vh}
+  .hint-row{grid-template-columns:calc(64px*var(--fsx)) 1fr}
+}
+
+/* ---------- V4 图标批次 3 · 快捷键说明与设置面板 ---------- */
+#hintClose{display:inline-flex;align-items:center;justify-content:center}
+#hintClose .iico{width:calc(14px*var(--fsx));height:calc(14px*var(--fsx))}
+/* 设置面板 · 「⟳ 自动刷新 / ⟳ 重启程序」改由 setIcoLabel 写「图标 + 文字」 */
+#btnAR,#btnRestart{display:flex;align-items:center;gap:calc(5px*var(--fsx))}
+#btnAR .ic,#btnRestart .ic{display:flex;align-items:center;justify-content:center;flex:none}
+#btnAR .iico,#btnRestart .iico{width:calc(14px*var(--fsx));height:calc(14px*var(--fsx))}

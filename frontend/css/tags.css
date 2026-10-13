@@ -1,0 +1,188 @@
+/* ComfyMediaViewer · css/tags.css
+   标签系统：语义化配色（规范 2.5）/ 大图标签面板 / 左栏标签树 / 卡片标签行 / Tauri 标题栏。 */
+
+/* ============================================================
+   语义化标签色（规范 2.5）
+   每个 .tg-* 只负责把 --tg-bg / --tg-tx 这一对局部变量写进元素，
+   圆点、卡片标签、大图标签胶囊都读这两个变量 —— 一处改色，全站同步。
+   ============================================================ */
+.tg-teal{--tg-bg:var(--tg-teal-bg);--tg-tx:var(--tg-teal-tx)}
+.tg-pink{--tg-bg:var(--tg-pink-bg);--tg-tx:var(--tg-pink-tx)}
+.tg-purple{--tg-bg:var(--tg-purple-bg);--tg-tx:var(--tg-purple-tx)}
+.tg-yellow{--tg-bg:var(--tg-yellow-bg);--tg-tx:var(--tg-yellow-tx)}
+.tg-orange{--tg-bg:var(--tg-orange-bg);--tg-tx:var(--tg-orange-tx)}
+.tg-green{--tg-bg:var(--tg-green-bg);--tg-tx:var(--tg-green-tx)}
+.tg-blue{--tg-bg:var(--tg-blue-bg);--tg-tx:var(--tg-blue-tx)}
+.tg-red{--tg-bg:var(--tg-red-bg);--tg-tx:var(--tg-red-tx)}
+/* 标签彩色圆点（左栏与卡片共用） */
+.tdot{display:inline-block;width:calc(8px*var(--fsx));height:calc(8px*var(--fsx));
+  border-radius:var(--r-pill);flex:none;vertical-align:middle;
+  background:var(--tg-tx,var(--tx3))}
+
+/* ---------- 大图标签面板 ---------- */
+#tagPanel{padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--border);flex:none}
+#tagPanel .tph{font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:var(--ls-caps);color:var(--tx3);
+  font-weight:var(--fw-semi);display:flex;align-items:center;gap:var(--sp-1);margin-bottom:var(--sp-1)}
+#tagPanel .tph .cnt{color:var(--tx3);font-weight:var(--fw-normal);letter-spacing:0}
+.tagwrap{display:flex;flex-wrap:wrap;gap:var(--sp-1);align-items:center}
+.tagchip{display:inline-flex;align-items:center;gap:var(--sp-1);height:calc(22px*var(--fsx));
+  background:var(--panel2);border:1px solid var(--border2);border-radius:var(--r-sm);
+  padding:0 var(--sp-1) 0 var(--sp-2);font-size:var(--fs-sm);color:var(--tx);cursor:pointer;
+  max-width:calc(160px*var(--fsx));
+  transition:background-color var(--dur-base) var(--ease-std),border-color var(--dur-base) var(--ease-std)}
+.tagchip:hover{border-color:var(--ac2)}
+/* 有语义色的标签胶囊：底与文本同色系 */
+.tagchip[class*="tg-"]{background:var(--tg-bg);border-color:transparent;color:var(--tg-tx)}
+.tagchip .seg{color:inherit;opacity:.75;margin-right:2px}
+.tagchip .x{width:calc(16px*var(--fsx));height:calc(16px*var(--fsx));border-radius:var(--r-pill);
+  display:flex;align-items:center;justify-content:center;font-size:var(--fs-micro);
+  color:inherit;opacity:.7;flex:none}
+.tagchip .x:hover{background:var(--err-bg);color:var(--err-tx);opacity:1}
+.tagchip .leaf{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tagInputWrap{position:relative;flex:1;min-width:calc(120px*var(--fsx));display:flex}
+#tagInput{flex:1;background:var(--input-bg);border:1px dashed var(--border2);border-radius:var(--r-sm);
+  font-size:var(--fs-sm);padding:0 var(--sp-2);min-width:calc(80px*var(--fsx));height:calc(22px*var(--fsx));
+  min-height:calc(22px*var(--fsx));color:var(--tx)}
+#tagInput:focus{border-color:var(--ac2);border-style:solid;box-shadow:var(--ring)}
+#tagSuggest{position:absolute;top:calc(100% + var(--sp-1));left:0;right:0;background:var(--panel2);
+  border:1px solid var(--border2);border-radius:var(--r-md);max-height:calc(200px*var(--fsx));overflow-y:auto;
+  z-index:var(--z-suggest);box-shadow:var(--sh-2);display:none}
+#tagSuggest .tsi{padding:var(--sp-1) var(--sp-2);font-size:var(--fs-sm);cursor:pointer;
+  display:flex;justify-content:space-between;gap:var(--sp-2)}
+#tagSuggest .tsi .c{color:var(--tx3);font-variant-numeric:tabular-nums}
+#tagSuggest .tsi:hover,#tagSuggest .tsi.sel{background:var(--ac-soft);color:var(--ac2-tx)}
+#tagSuggest .tsnew{color:var(--ok-tx);border-top:1px solid var(--border);font-size:var(--fs-meta)}
+
+/* ---------- 卡片标签行（规范 4.4：18px 高、4px 圆角、4-6px 水平内边距、语义色） ---------- */
+.card .crdtags{position:static;display:flex;align-items:center;gap:var(--sp-1);flex-wrap:wrap;
+  padding:var(--sp-1) var(--sp-2) var(--sp-2);opacity:1}
+.card .crdtags .ct{background:var(--tg-bg,var(--panel2));border:1px solid transparent;
+  border-radius:var(--r-sm);height:calc(18px*var(--fsx));padding:0 var(--sp-1);
+  font-size:var(--fs-tag);font-weight:var(--fw-bold);color:var(--tg-tx,var(--tx2))}
+.card .crdtags .ct.more{color:var(--tx3);font-weight:var(--fw-normal)}
+.card .crdtags .ct .tdot{margin-right:2px}
+/* 卡片标记角标里的 ⚑ 与标签同层，避免互相遮挡 */
+
+/* ---------- 左栏标签树（与 .litem 同一套状态：规范 5.1） ---------- */
+#tagNav .tlvl{display:flex;align-items:center;gap:var(--sp-2);padding:0 var(--sp-2) 0 calc(18px*var(--fsx));
+  border-radius:var(--r-md);cursor:pointer;font-size:var(--fs-ui);color:var(--tx2);
+  min-height:var(--h-ctl);white-space:nowrap;
+  transition:background-color var(--dur-base) var(--ease-std),color var(--dur-base) var(--ease-std)}
+#tagNav .tlvl:hover{background:var(--panel2);color:var(--tx)}
+#tagNav .tlvl.on{color:var(--tx);background:var(--s-active);font-weight:var(--fw-semi);
+  box-shadow:var(--bar-ac)}
+#tagNav .tlvl .ic{font-size:var(--fs-micro);color:var(--tx3);width:calc(12px*var(--fsx));flex:none;
+  display:flex;align-items:center;justify-content:center}
+/* E5-3（2026-09-23）：标签树的「展开全部 / 收起」行。
+   与标签行同构（复用 .tlvl 的尺寸与悬停），但语义不同 —— 它不是筛选而是展开，
+   所以常态压到 --tx3（此前那行死文本用的就是 --tx3），悬停才提到 --tx2。
+   焦点环由全局 :focus-visible 统一给（这一行有 tabindex=0、键盘可达）。 */
+#tagNav .tlvl.more{color:var(--tx3);font-weight:var(--fw-normal)}
+#tagNav .tlvl.more:hover{background:var(--panel2);color:var(--tx2)}
+/* ⚠️ .tlvl 是 nowrap 且**没有** overflow 约束（既有行都靠短标签名侥幸）——
+   这一行的文案（「全部标签 · 还有 N 个」）明显更长，必须让它能收缩，
+   否则最窄的左栏宽度下会被裁掉一截且没有任何提示。只作用于 .more，
+   不动既有标签行（那是本批范围外的事，改它要重测左栏几何）。 */
+#tagNav .tlvl.more .nm{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tagNav .tlvl .ic .iico{width:calc(11px*var(--fsx));height:calc(11px*var(--fsx))}
+#tagNav .tlvl .ic.tdotwrap{display:flex;align-items:center;justify-content:center;width:calc(12px*var(--fsx))}
+#tagNav .tlvl .c{margin-left:auto;font-size:var(--fs-micro);color:var(--tx3);background:var(--panel2);
+  border-radius:var(--r-pill);padding:0 var(--sp-1);min-width:calc(20px*var(--fsx));text-align:center;
+  font-variant-numeric:tabular-nums;flex:none}
+#tagNav .tlvl.on .c{color:var(--tx2);background:var(--s-chip)}
+#tagNav .tlvl.ex{color:var(--err-tx);background:var(--err-bg)}
+#tagNav .tlvl.ex.on{background:var(--err-bg);box-shadow:var(--bar-err)}
+#tagNav .tlvl.ex .ic{color:var(--err-tx)}
+#tagNav .litem.on .cnt{color:var(--tx2)}
+
+/* ============================================================
+   Tauri 自定义标题栏（Tauri 模式下可见，融入暗色 UI）
+   ⚠️ V6 例外：本块的高度（32）与窗口按钮宽度（46）**不跟随 --fsx**。
+      它们必须与壳页 tauri-app/frontend 的窗口按钮令牌逐像素对齐 ——
+      应用在跨源 iframe 里，字号若不一致，按钮会与顶栏错位（见设计规范 §3.2）。
+   - 拖拽与窗口按钮均用 JS 调用 Tauri 窗口 API（startDragging / minimize / maximize / close / isMaximized）实现，
+     不再依赖 HTML data-tauri-drag-region 属性；仅在取不到窗口实例时回退 setAttribute('data-tauri-drag-region') 兜底
+   - 按钮在 mousedown/click 上阻止冒泡以避开拖拽；整条 bar（按钮除外）按下即拖动，双击 bar 切换最大化/还原
+   ============================================================ */
+#tauri-bar{
+  height:32px; display:flex; align-items:center;
+  background:var(--panel); border-bottom:1px solid var(--border);
+  padding:0 10px; user-select:none; -webkit-user-select:none;
+  position:relative; z-index:var(--z-shell);
+}
+#tauri-bar[hidden]{display:none}
+#tauri-bar .tb-brand{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:var(--fw-semi);color:var(--tx);pointer-events:none}
+#tauri-bar .tb-cube{
+  width:calc(18px*var(--fsx));height:calc(18px*var(--fsx));border-radius:calc(5px*var(--fsx));
+  background:var(--brand-grad);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:var(--fw-bold);color:var(--on-ac);letter-spacing:.5px;
+}
+#tauri-bar .tb-ver{opacity:.55;font-weight:var(--fw-normal);font-size:11px;margin-left:5px}
+#tauri-bar .tb-spacer{flex:1}
+#tauri-bar .tb-ctrls{display:flex;height:32px;margin:0 -10px 0 0}
+#tauri-bar .tb-btn{
+  width:46px;height:32px;min-height:32px;border:0;background:transparent;color:var(--tx2);
+  font:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background var(--dur-fast), color var(--dur-fast);
+}
+#tauri-bar .tb-btn:hover{background:rgba(255,255,255,.08);color:var(--tx)}
+#tauri-bar .tb-btn.tb-close:hover{background:#C42B1C;color:#fff}
+#tauri-bar .tb-btn svg{width:10px;height:10px;display:block}
+/* 亮色主题适配：标题栏跟随系统/亮色
+   ⚠️ **P1-30（2026-09-20）**：这里原为 `body.light` —— 但主题切换走的是
+   `documentElement.setAttribute("data-theme","light")`（见 settings.js），
+   **从不往 body 上挂 light class** ⇒ 这三条规则**从未生效**过，
+   桌面壳标题栏在亮色主题下一直是深色（融入暗色 UI 的那套值）。
+   现改为正确的属性选择器；顺带把三个硬编码色收敛到令牌：
+     #F3F3F3 → --panel2（亮色下 #EDF0F6，同档浅灰）
+     #DCDCDC → --border（亮色下 #E2E6EF）
+     #555    → --tx2（亮色下 #5A6272，次要文本档）
+     rgba(0,0,0,.06) → --hov（亮色下同名令牌就是 rgba(16,18,24,.05)）
+   `html[data-theme="light"] #tauri-bar` 的 `html` 前缀不可省：要与 tokens.css
+   的令牌作用域同位，否则在 :root 层拿不到亮色取值。 */
+html[data-theme="light"] #tauri-bar{background:var(--panel2);border-bottom-color:var(--border)}
+html[data-theme="light"] #tauri-bar .tb-btn{color:var(--tx2)}
+html[data-theme="light"] #tauri-bar .tb-btn:hover{background:var(--hov);color:var(--tx)}
+/* Tauri 模式下：给 #app 顶部留出 32px 给标题栏 */
+body.is-tauri #app{padding-top:32px}
+body.is-tauri{height:100vh;overflow:hidden}
+
+/* ============================================================
+   V2.7 桌面壳融合：桌面壳不再单独占一条标题栏，
+   「最小化 / 最大化 / 关闭」三个按钮由壳页悬浮在窗口右上角，落在当前这一屏的顶栏里。
+   应用侧只做两件事：
+     1) 每一个「贴窗口顶边 + 横跨整宽」的横栏都要在右侧让出三个按钮的宽度
+        （网格 #top / 大图 #lb-top / 并排对比 #cmpBar；三者都能占到窗口最顶端）；
+     2) 顶栏空白区的拖拽 / 双击由 app.js 经 postMessage 转交壳页，所以这里要禁止文字选中，
+        否则按住空白处会先拉出选区、拖动不跟手（输入框内仍需可选中）。
+   ============================================================ */
+body.in-shell #top,
+body.in-shell #cmpBar{padding-right:calc(var(--winctrl-w,46px) * 3)}
+/* L1-2（2026-09-28，用户 V2.12.8-test 实测「删除」仍与窗口按钮重叠）：
+   #lb-top 恒为横向滚动容器（viewer.css 基础规则），而 **overflow 裁切发生在 padding box
+   边缘** —— 溢出内容会画进 padding-right 让位区、直到容器外缘才被裁掉，padding 让位
+   对「放不下」的场景毫无防护力。让位改走 border-right：border 在 padding box **之外**，
+   溢出内容裁切在 border 内缘 = 让位边界，视觉上绝不进窗口按钮区。
+   背景默认画满 border box ⇒ 顶栏背景条仍然横跨整窗（设计意图不变）；
+   全局 border-box 下 content box 同步收窄 138px，排版与原 padding 方案一致；
+   滚到最右时最后控件停在让位边界（不再有 padding 缓冲，行为反而更正确）。
+   #top / #cmpBar 非滚动容器（ovX:visible），border 挡不住其溢出内容，维持 padding 让位。 */
+body.in-shell #lb-top{padding-right:0;
+  border-right:calc(var(--winctrl-w,46px) * 3) solid transparent}
+body.in-shell #top,
+body.in-shell #lb-top,
+body.in-shell #cmpBar{user-select:none;-webkit-user-select:none}
+body.in-shell #top input,
+body.in-shell #top textarea,
+body.in-shell #lb-top input,
+body.in-shell #lb-top textarea{user-select:text;-webkit-user-select:text}
+
+/* ---------- V4 图标批次 3 · 标签 chip / 标签管理（原 ✕ ＋ ✨ 字符） ---------- */
+.tagchip .x{display:flex;align-items:center;justify-content:center}
+.tagchip .x .iico{width:calc(10px*var(--fsx));height:calc(10px*var(--fsx))}
+#tagPanel .x{display:flex;align-items:center;justify-content:center}
+#tagPanel .x .iico{width:calc(11px*var(--fsx));height:calc(11px*var(--fsx))}
+#btAddNew{display:inline-flex;align-items:center;gap:calc(4px*var(--fsx))}
+#btAddNew .iico{width:calc(13px*var(--fsx));height:calc(13px*var(--fsx))}
+#tagSugRow .iico{width:calc(11px*var(--fsx));height:calc(11px*var(--fsx))}

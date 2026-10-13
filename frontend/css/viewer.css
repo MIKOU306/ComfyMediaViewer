@@ -1,0 +1,320 @@
+/* ComfyMediaViewer · css/viewer.css
+   大图 Loupe / 对比视图。V2.7 起「大图区 #lb」整体跟随亮/暗主题
+   （底色 --lb-bg、顶栏 --lb-top-bg、投影 --stage-glow、角标底 --ovl-chip-bg，
+   亮色下的取值在 tokens.css 里；对比页 #cmp 与视频条 #vidBar 仍固定深色）。 */
+
+/* ---------- 大图 Loupe ---------- */
+#lb{position:fixed;inset:0;z-index:var(--z-full);display:none;background:var(--lb-bg);flex-direction:column}
+#lb.on{display:flex}
+/* 顶栏高度与主顶栏共用 --top-h（V2.7：56 → 38，与网格顶栏同厚，同时保证桌面壳
+   悬浮的窗口按钮在大图模式下也能严丝合缝落在这一行里） */
+#lb-top{height:var(--top-h);display:flex;align-items:center;gap:var(--sp-2);
+  padding:0 var(--pad-page);flex:none;
+  /* L1（2026-09-27，修「窗口按钮重叠」）：放不下时收进横向滚动，绝不压到桌面壳窗口按钮底下。
+     此前只在 ≤620px 有滚动兜底（responsive.css），620~约980px 区间（125% DPI 的窄窗口
+     正好落在里面）子项全是 flex:none ⇒ 内容溢出右侧让位区，与悬浮的「最小化/最大化/关闭」
+     重叠（用户 1082 物理宽 @125% 实测）。断点跟随不了字号缩放（--fsx 是运行期变量），
+     所以兜底放基础规则：放得下时滚动容器没有任何视觉差异，放不下时裁切 + 可滚动
+     （与 #lbFilm 同款做法）。 */
+  overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;scrollbar-width:none;
+  background:var(--lb-top-bg);border-bottom:1px solid var(--border);font-size:var(--fs-ui)}
+#lb-top::-webkit-scrollbar{display:none}   /* 38px 横栏塞不下滚动条（同 #lbFilm），滚轮可横向滚动 */
+#lb-top .lname{color:var(--tx);font-size:var(--fs-body);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;flex:1 1 auto;min-width:calc(60px*var(--fsx))}
+#lb-top .ldim{color:var(--tx3);font-family:var(--mono);font-size:var(--fs-meta);flex:0 1 auto;
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#lb-top .acts{margin-left:auto;display:flex;align-items:center;gap:var(--sp-1);flex:none}
+#lb-top .acts button{font-size:var(--fs-sm);height:var(--h-ctl);min-height:var(--h-ctl);padding:0 var(--sp-3)}
+#lb-top .acts select{height:var(--h-ctl);min-height:var(--h-ctl);font-size:var(--fs-sm)}
+/* V4 批次 2：顶栏按钮由「字符图标」改为 svg ⇒ 必须显式 flex 居中
+   （字符靠行高居中，svg 不会跟着文字基线走，否则图标会明显偏上/偏下） */
+#lb-top .acts button,#lb-top .tbtn{display:inline-flex;align-items:center;
+  gap:calc(6px*var(--fsx))}
+#lb-top .ic{font-size:0;display:flex;align-items:center;justify-content:center}
+#lb-top .ic .iico,#lb-top .acts button>.iico{width:calc(16px*var(--fsx));height:calc(16px*var(--fsx))}
+#lbMid{flex:1;display:flex;min-height:0;position:relative}
+#stage{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;
+  padding:var(--sp-2);overflow:hidden;position:relative}
+#stage img,#stage video{max-width:100%;max-height:100%;border-radius:0;
+  box-shadow:var(--stage-glow)}
+#stage img{cursor:grab;user-select:none;-webkit-user-drag:none;touch-action:none}
+#stage img.grabbing{cursor:grabbing}
+/* ε-2（2026-09-20）：大图加载失败态（viewer.js 的 img.onerror 渲染它）。
+   此前这类失败静默掉 ⇒ 舞台一片空白，用户不知道是图坏了还是程序卡了。
+   全部走令牌 + 相对字号，跟着主题与字号档位（--fsx）一起缩放，不写死像素。 */
+#stage .lb-fail{max-width:min(100%,calc(420px*var(--fsx)));text-align:center;
+  padding:var(--sp-4) var(--sp-3);color:var(--tx2);font-size:var(--fs-body);
+  line-height:1.7;user-select:text}
+#stage .lb-fail .sub{margin-top:var(--sp-2);font-size:var(--fs-sm);color:var(--tx3);
+  word-break:break-all}
+#navL,#navR{position:absolute;top:50%;transform:translateY(-50%);width:calc(44px*var(--fsx));
+  height:calc(72px*var(--fsx));min-height:0;display:flex;align-items:center;justify-content:center;
+  font-size:calc(24px*var(--fsx));color:var(--tx3);
+  background:transparent;border:none;border-radius:var(--r-lg)}
+#navL:hover,#navR:hover{color:var(--tx);background:var(--panel3)}
+#navL{left:var(--sp-2)}#navR{right:var(--sp-2);transition:right var(--dur-base) var(--ease-std)}
+#navL .iico,#navR .iico{width:calc(26px*var(--fsx));height:calc(26px*var(--fsx))}
+/* 详情面板展开时，#navR 定位锚定到照片舞台右缘(避开面板),与 #navL 对称。
+   右偏移与面板实际宽度 min(340px*var(--fsx),58vw) 对齐（窄窗口/大字号下面板变窄，箭头随之左移） */
+#lbMid:has(> #side:not(.hidden)) #navR{right:calc(min(340px*var(--fsx),58vw) + var(--sp-2))}
+
+/* M1（2026-10-08）：视频「手动开始」的中央播放按钮。
+   与 #navL/#navR 同一套浮层语汇（绝对定位 + --fsx 钳位尺寸 ⇒ 多视口/大字号自适应），
+   z-index 比左右箭头高一级：视频居中时按钮压在舞台中央，箭头仍在两侧可翻页。
+   ⚠️ 尺寸算式含 --fsx、位置用 --sp-*，不写死像素（本项目硬约束）。
+   ⚠️⚠️ **居中基准必须是 #stage，不是 #lbMid**：详情面板 #side 也在 #lbMid 里，
+      `left:50%` 会取「含面板」的中点 ⇒ 面板一开按钮就偏左（实测 Δx=170px）。
+      修法与 #navR/#filmTgl 同源 —— 面板展开时把中点左移面板半宽（面板宽 min(340px*--fsx,58vw)，
+      与 #side 完全同源自不必另立常量）。窄屏下面板变窄，偏移随之缩小，不会把按钮推出舞台。 */
+#lbPlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:calc(84px*var(--fsx));height:calc(84px*var(--fsx));min-height:0;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;cursor:pointer;z-index:var(--z-lift);
+  color:var(--code-tx);background:var(--ovl-chip-bg);border:1px solid var(--border);
+  backdrop-filter:blur(6px);
+  transition:transform var(--dur-fast) var(--ease-std),
+             left var(--dur-base) var(--ease-std)}
+#lbMid:has(> #side:not(.hidden)) #lbPlay{
+  left:calc(50% - min(170px*var(--fsx),29vw))}
+#lbPlay[hidden]{display:none}
+#lbPlay:hover{transform:translate(-50%,-50%) scale(1.06)}
+#lbPlay .iico{width:calc(34px*var(--fsx));height:calc(34px*var(--fsx))}
+#zoomBadge{position:absolute;left:var(--sp-3);bottom:var(--sp-3);z-index:var(--z-lift);background:var(--ovl-chip-bg);
+  color:var(--code-tx);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:2px var(--sp-2);font-size:var(--fs-meta);font-family:var(--mono);
+  display:none;pointer-events:none}
+/* 右侧详情面板 */
+#side{width:calc(340px*var(--fsx));max-width:min(340px*var(--fsx),58vw);background:var(--panel);
+  border-left:1px solid var(--border);display:flex;flex-direction:column;flex:none;
+  transition:margin var(--dur-base) var(--ease-std)}
+#side.hidden{margin-right:calc(-341px*var(--fsx))}
+#side .hd{padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--border);display:flex;
+  gap:var(--sp-1);align-items:center;flex-wrap:wrap}
+#side .hd .spacer{flex:1}
+/* E5-6（2026-09-23）：面板小标题（「详情」）。
+   此前是 index.html 的内联样式，且与**同一个面板**里的 #tagPanel .tph（tags.css）逐项重复
+   —— 唯一差别是那边写 `calc(1.2px*var(--fsx))`、这边写裸 `1.2px`（不随字号缩放）。
+   收到这里对齐两者，视觉零变化。 */
+#side .hd .hd-t{font-size:var(--fs-micro);text-transform:uppercase;color:var(--tx3);
+  letter-spacing:var(--ls-caps)}
+#side .hd b{font-size:var(--fs-sm);color:var(--tx3);font-weight:var(--fw-semi);word-break:break-all;
+  min-width:calc(80px*var(--fsx))}
+#side .hd select{max-width:calc(120px*var(--fsx));font-size:var(--fs-sm)}
+#side .hd #btnClose{margin-left:0}
+#sideTgl{position:absolute;right:0;top:var(--sp-3);width:calc(26px*var(--fsx));height:calc(56px*var(--fsx));
+  min-height:0;background:var(--panel2);border:1px solid var(--border);border-right:none;
+  border-radius:var(--r-lg) 0 0 var(--r-lg);color:var(--tx3);
+  display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);cursor:pointer;z-index:var(--z-ctl)}
+#sideTgl:hover{color:var(--tx);background:var(--panel3)}
+#sideTgl .iico,#sideTglX .iico{width:calc(14px*var(--fsx));height:calc(14px*var(--fsx))}
+#sideTglX{display:inline-flex;align-items:center;justify-content:center}
+#side.hidden~#sideTgl{right:0}
+#meta{flex:1;overflow:auto;padding:var(--sp-3);font-size:var(--fs-sm);scrollbar-width:thin}
+#meta .k{color:var(--ac-tx);margin:var(--sp-3) 0 var(--sp-1);font-weight:var(--fw-semi);font-size:var(--fs-sm)}
+#meta .row{color:var(--tx2);margin:calc(2px*var(--fsx)) 0}
+/* E5-7（2026-09-23）：「元数据读取失败」与「本来就没有生成信息」是两回事，
+   视觉上也要能一眼分开 —— 失败走错误色，普通空态保持 --tx2。 */
+#meta .row.err{color:var(--err-tx)}
+#meta .cpv{cursor:copy;border-bottom:1px dashed var(--border2)}
+#meta .cpv:hover{color:var(--ac-tx);border-bottom-color:var(--ac)}
+#meta .vidinfo{color:var(--tx3)}
+#meta pre{background:var(--code-bg);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:var(--sp-2);overflow:auto;max-height:calc(300px*var(--fsx));white-space:pre-wrap;
+  word-break:break-all;color:var(--code-tx);margin:0;font-family:var(--mono);
+  font-size:var(--fs-meta);line-height:var(--lh-loose)}
+#meta details{margin:var(--sp-2) 0}
+#meta summary{cursor:pointer;color:var(--tx2);user-select:none;font-size:var(--fs-sm)}
+#meta summary:hover{color:var(--ac-tx)}
+#meta a.cp{color:var(--ac-tx);font-size:var(--fs-meta);text-decoration:none}
+#meta a.cp:hover{text-decoration:underline}
+/* V14：复制成功时触发元素短暂变成功色（.cpv 的虚线底边一起变色） */
+#meta a.cp.copied{color:var(--ok-tx)}
+#meta .cpv.copied{color:var(--ok-tx);border-bottom-color:var(--ok-tx)}
+#lb-top #btnCopy.copied{background:var(--ok);border-color:var(--ok)}
+.skel{position:relative;overflow:hidden;border-radius:var(--r-sm);background:var(--panel2);min-height:calc(13px*var(--fsx))}
+.skel::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,var(--hov),transparent);animation:skel var(--dur-loop) infinite}
+@keyframes skel{to{transform:translateX(100%)}}
+/* 预览栏：高度随视口自适应（不写死像素，兼容不同分辨率/DPI） */
+#lbFilm{--fh:clamp(64px,11vh,140px);height:var(--fh);flex:none;background:var(--canvas);
+  border-top:1px solid var(--border);display:flex;align-items:center;gap:var(--sp-1);
+  padding:0 var(--sp-2);overflow-x:auto;transition:margin var(--dur-base) var(--ease-std);scrollbar-width:none}
+#lbFilm::-webkit-scrollbar{display:none}   /* 隐藏横向滚动条，避免盖住缩略图底部；滚轮可横向滚动 */
+#lbFilm.off{display:none}
+/* 预览栏收起/展开开关（舞台右下角，收起后仍可点） */
+#filmTgl{position:absolute;right:var(--sp-2);bottom:var(--sp-2);z-index:var(--z-ctl);
+  width:calc(64px*var(--fsx));height:calc(20px*var(--fsx));min-height:0;
+  background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-pill);
+  color:var(--tx3);font-size:var(--fs-micro);cursor:pointer;
+  display:flex;align-items:center;justify-content:center}
+#filmTgl:hover{color:var(--tx);background:var(--panel3)}
+#filmTgl .iico{width:calc(13px*var(--fsx));height:calc(13px*var(--fsx))}
+/* 详情面板展开时锚定到舞台右缘（与 #navR 同规则）。宽度算式必须与 #side 完全同源
+   ——min(340px*var(--fsx),58vw)——否则字号放大时面板变宽而这里不跟着变，
+   预览栏与收起开关会被压在面板底下（V2.8.4 修）。 */
+#lbMid:has(> #side:not(.hidden)) #filmTgl{right:calc(min(340px*var(--fsx),58vw) + var(--sp-2))}
+/* 详情面板展开时，预览栏截止到面板左缘，不延伸到面板下方 */
+#lb:has(#side:not(.hidden)) #lbFilm{margin-right:min(340px*var(--fsx),58vw)}
+/* 缩略格跟随栏高：占满栏内可用高度（上下各留 4px），宽度按 1:1 自适应 */
+#lbFilm .f{position:relative;flex:none;width:auto;height:calc(var(--fh) - var(--sp-1)*2);aspect-ratio:1/1;
+  background:var(--canvas);border-radius:var(--r-md);overflow:hidden;border:1px solid var(--border);
+  cursor:pointer;opacity:.72;transition:opacity var(--dur-fast)}
+#lbFilm .f:hover{opacity:1}
+/* P1-24（2026-09-20）：此前只有 :hover / .on 两态，**按下（:active）零反馈** ——
+   「大图预览栏缩略格按下零反馈」。这里补一档：轻微收缩 + 描边，走 --dur-fast，
+   与工程其它按钮的按下手感同口径（不用 transform:scale，避免缩略图重排带来的抖动）。 */
+#lbFilm .f:active{opacity:1;border-color:var(--ac2);box-shadow:var(--ring-line)}
+#lbFilm .f.on{border-color:var(--ac);box-shadow:var(--ring-line);opacity:1}
+#lbFilm .f img{width:100%;height:100%;object-fit:contain;display:block}
+/* V47（2026-10-08）：视频格子改为渲染真首帧（见 settings.js buildFilm），
+   这里的 video 必须与 img 同款撑满；object-fit:cover 而非 contain —— 视频多为
+   16:9 而格子是 1:1 正方，contain 会留出上下黑边（看起来又像「没显示」），
+   cover 裁掉两侧更接近缩略图观感。pointer-events:none 交给格子本体接点击。 */
+#lbFilm .f video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;
+  background:var(--canvas)}
+/* 播放角标：视频格子右上角补一枚小图标（首帧已经能看出是视频了，这里只做类型提示）。
+   ⚠️ 与 .fb（旧的整格居中大图标）区分：那个随本次改动已不再产出，但保留规则不删，
+      避免有历史 DOM 残留时样式塌掉（灰度期安全）。 */
+#lbFilm .f .fb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:clamp(14px,1.8vh,26px);opacity:.4}
+#lbFilm .f .fb .iico{width:clamp(14px,1.8vh,26px);height:clamp(14px,1.8vh,26px)}
+/* 首尾隐形占位：让第一张/最后一张缩略图也能滚动到正中（宽度=半个视口-半格缩略图） */
+#lbFilm .fsp{flex:none;width:calc(50% - (var(--fh) - var(--sp-1)*2)/2);height:100%}
+
+/* ---------- 对比视图 ---------- */
+/* U5 收口（批次 A）：容器底色从写死的 rgba(10,11,14,.99) 收进 --cmp-bg 令牌。
+   ⚠️ **不是**改色 —— 对比页刻意不跟随亮色主题（并排看图取色更准，见 tokens.css
+      「固定深色区」整组重映射）；此前的债是「内部令牌都重映射了，容器自身却写死」。
+   ⚠️ 别顺手把它改成 var(--canvas)：二者**不等值**（--canvas 是纯黑，对比页要 .99 近黑透底）。 */
+#cmp{position:fixed;inset:0;z-index:var(--z-full);display:none;flex-direction:column;background:var(--cmp-bg)}
+#cmp.on{display:flex}
+#cmpBar{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--pad-page);
+  background:var(--panel);border-bottom:1px solid var(--border)}
+/* V4 批次 2：对比条按钮的图标槽 */
+#cmpBar button{display:inline-flex;align-items:center;gap:calc(6px*var(--fsx))}
+#cmpBar .ic{font-size:0;display:flex;align-items:center;justify-content:center}
+#cmpBar .iico{width:calc(15px*var(--fsx));height:calc(15px*var(--fsx))}
+#cmpN{color:var(--tx2);font-size:var(--fs-ui);flex:1;min-width:0}
+#cmpGrid{flex:1;display:grid;gap:var(--sp-2);padding:var(--sp-2);min-height:0}
+#cmpGrid .cp{position:relative;overflow:hidden;background:var(--canvas);border-radius:var(--r-lg);min-height:0}
+#cmpGrid .cp img{width:100%;height:100%;object-fit:contain;display:block;cursor:grab;
+  user-select:none;-webkit-user-drag:none}
+#cmpGrid .cp img.grabbing{cursor:grabbing}
+#cmpGrid .cp .cpc{position:absolute;left:0;right:0;bottom:0;padding:calc(14px*var(--fsx)) calc(10px*var(--fsx)) calc(5px*var(--fsx));
+  background:linear-gradient(transparent,rgba(0,0,0,.85));color:#D6D6D6;font-size:var(--fs-meta);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#wipeWrap{display:none;flex:1;min-height:0;padding:var(--sp-2)}
+#wipeWrap.on{display:flex;flex-direction:column;gap:var(--sp-2)}
+#wipeStage{position:relative;flex:1;background:var(--canvas);border-radius:var(--r-lg);
+  overflow:hidden;min-height:0}
+#wipeStage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+  cursor:grab;user-select:none;-webkit-user-drag:none}
+#wipeStage img.grabbing{cursor:grabbing}
+/* 滑块擦除：B 的裁切窗。**必须**是不参与 transform 的一层 —— clip-path 先按元素本地
+   坐标裁切、裁完的结果再整体过 transform，所以裁切挂在被 scale 的 img 上时，那条裁切边
+   （= 用户眼里的分割线）会随图一起平移放大：屏幕位置 = W/2 + (X%·W − W/2)·s + tx，
+   而 #wipeHandle 的 left:X% 恒为 X%·W ⇒ 只有 s=1 / tx=0 / X=50% 时两者才重合。
+   下移到这一层后，裁切窗与滑块同处屏幕坐标系、共用同一个百分比基宽（stage 宽）。
+   img 仍 inset:0 填满整层 ⇒ 布局盒与 transform-origin 与改前逐字相同，A/B 仍严格同步。 */
+#wipeBClip{position:absolute;inset:0;pointer-events:none}
+#wipeB{pointer-events:auto}   /* 裁切层关掉命中测试，B 自己开回来（放大后拖拽平移要落到它身上） */
+#wipeHandle{position:absolute;top:0;bottom:0;width:2px;background:var(--ac2);cursor:ew-resize;z-index:var(--z-chip)}
+#wipeHandle::after{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:calc(26px*var(--fsx));height:calc(26px*var(--fsx));border-radius:var(--r-pill);background:var(--panel2);border:1px solid var(--ac2);
+  display:flex;align-items:center;justify-content:center}
+#wipeHandle .knob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:calc(26px*var(--fsx));height:calc(26px*var(--fsx));border-radius:var(--r-pill);
+  display:flex;align-items:center;justify-content:center;   /* V4 批次 2：放大 svg 后改 flex 居中 */
+  background:var(--panel);border:1px solid var(--ac2);color:var(--ovl-tx);pointer-events:none}
+#wipeHandle .knob .iico{width:calc(14px*var(--fsx));height:calc(14px*var(--fsx))}
+#wipeLblA,#wipeLblB{position:absolute;bottom:var(--sp-2);padding:2px var(--sp-2);border-radius:var(--r-sm);
+  background:rgba(var(--ovl-rgb),.72);color:var(--ovl-tx);font-size:var(--fs-meta);max-width:45%;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;z-index:var(--z-cap)}
+#wipeLblA{left:var(--sp-2)}#wipeLblB{right:var(--sp-2)}
+#wipeHint{text-align:center;font-size:var(--fs-meta);color:var(--tx3);user-select:none}
+
+/* ---------- 单图查看（V2.10.7）----------
+   打开一张库外图片时，大图面板里那些「只对库内条目才有意义」的控件要让位：
+   收藏 / 分类 / 标记 / 打开位置 / 删除 / 翻页 / 胶片条 / 标签面板。
+   统一用 body.solo 关掉，而不是在 JS 里逐个改 style.display —— renderMeta 已经用
+   内联 display 管着「有元数据才显示」那几个按钮（内联优先级更高），两边混着改会打架。
+   「提示词 / 配方 / 复制 / 下载 / 送 ComfyUI」全部保留，那正是这个模式的用途。 */
+#lbSolo{display:none}
+body.solo #lbSolo{
+  display:inline-flex;align-items:center;flex:none;padding:1px var(--sp-2);
+  border-radius:var(--r-pill);background:var(--ac-soft);color:var(--ac-tx);
+  font-size:var(--fs-meta);line-height:1.7;white-space:nowrap;
+}
+body.solo #lbCat, body.solo #lbMark, body.solo #btnFav, body.solo #btnOpenFolder,
+body.solo #btnDel, body.solo #navL, body.solo #navR, body.solo #filmTgl,
+body.solo #lbFilm, body.solo #tagPanel{display:none !important}
+/* 顶栏「刷新」同理：单图看的是库外文件，刷新库目录没有意义 —— 留着就是个死按钮 */
+body.solo #btnRefresh{display:none !important}
+
+/* ============================================================
+   V8 · 详情面板信息分层（体验批次 C）
+   三层卡片：① 总览 ② 生成参数 ③ 原始数据；长提示词折叠 6 行。
+   折叠高度用 6 × --lh-loose × 1em 算（em 跟自身字号），不写死 px —— 150% 字号下
+   行高变大时折叠的仍然是 6 行，不会折错。原始数据仍走 <details>，可复制。
+   ============================================================ */
+#meta .mcard{background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-lg);
+  padding:var(--sp-2) var(--sp-3) var(--sp-3);margin:0 0 var(--sp-3)}
+#meta .mcard:last-child{margin-bottom:0}
+#meta .mh{margin:0 0 var(--sp-1);color:var(--ac-tx);font-weight:var(--fw-semi);font-size:var(--fs-sm)}
+/* 列宽固定（不随内容 auto）——「总览」与「生成参数」是两张卡片，各自的 .mdl 是两个独立 grid；
+   若用 auto，两卡的字段值左缘会差几像素。70px 容得下最长字段名「出图尺寸」（4 字）。 */
+#meta .mdl{margin:0;display:grid;grid-template-columns:calc(70px*var(--fsx)) minmax(0,1fr);
+  column-gap:var(--sp-3);row-gap:calc(3px*var(--fsx))}
+#meta .mrow{display:contents}                 /* dt/dd 直接进两列，行行对齐 */
+#meta .mdl dt{color:var(--tx3);font-size:var(--fs-meta);white-space:nowrap;line-height:var(--lh-body);
+  min-width:0;overflow:hidden;text-overflow:ellipsis}
+#meta .mdl dd{margin:0;color:var(--tx2);font-size:var(--fs-sm);line-height:var(--lh-body);
+  min-width:0;word-break:break-all}
+/* 长文本折叠块 */
+#meta .mfold{margin-top:var(--sp-2)}
+#meta .mfhd{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-1)}
+#meta .mfhd>span{font-size:var(--fs-sm);color:var(--tx3)}
+#meta .mfbtn{margin-left:auto;height:auto;min-height:0;padding:1px var(--sp-2);
+  font-size:var(--fs-meta);background:var(--panel3);border:1px solid var(--border);
+  border-radius:var(--r-sm);color:var(--tx2);cursor:pointer}
+#meta .mfbtn:hover{color:var(--tx);border-color:var(--border2)}
+#meta .mfold>.ptxt{max-height:calc(6*var(--lh-loose)*1em);overflow:hidden}
+#meta .mfold.short>.ptxt,#meta .mfold.open>.ptxt{max-height:none}
+#meta .mfact{text-align:right;margin:calc(2px*var(--fsx)) 0 var(--sp-1)}
+
+/* ---------- V47（2026-10-08）：LoRA 结构化区块 ----------
+   背景：原来 LoRA 走 .mdl 字段表，`join(", ")` 成一个值 ⇒ 4 个 LoRA 拼 179 字符挤成
+   一坨（实测 93px 高 / 5 行），权重淹没在文本里。现在升格为独立区块：一条一行、
+   权重右锚徽章。视觉基准 = dev/lora_layout_compare.html 的 2-A 列（已 CDP 实测 9/9）。
+   ⚠️ 尺寸一律带 --fsx（本项目硬约束）：面板宽 340px*--fsx，字号放大时行高/徽章同步放大。
+   ⚠️ 名字的省略方向是 **rtl**（`direction:rtl;text-align:left`）：LoRA 名的区分度主要在
+      **尾部**（.safetensors / .pt 之前的版本号、风格词），从左往右截会把最没用的厂商前缀
+      留下、把真正区分的那截截掉。rtl 让省略号落在**中间偏前**，尾部保留。
+      这是刻意的取舍，不是笔误 —— 别"顺手改回 ltr"。 */
+#meta .lorabox{margin-top:var(--sp-2)}
+#meta .lorabox>.lh{display:flex;align-items:center;gap:var(--sp-2);
+  font-size:var(--fs-meta);color:var(--tx3);margin-bottom:calc(4px*var(--fsx))}
+#meta .lorabox>.lh .cnt{font-size:var(--fs-micro);color:var(--tx3);
+  background:var(--panel3);border-radius:var(--r-pill);padding:0 calc(6px*var(--fsx))}
+#meta .lora-row{display:flex;align-items:center;gap:var(--sp-2);
+  padding:calc(3px*var(--fsx)) 0;border-bottom:1px solid var(--border)}
+#meta .lora-row:last-child{border-bottom:0}
+#meta .lora-nm{flex:1;min-width:0;font-size:var(--fs-meta);color:var(--tx2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  direction:rtl;text-align:left;unicode-bidi:plaintext}
+#meta .lora-nm:hover{color:var(--ac-tx);border-bottom-color:var(--ac)}
+#meta .lora-st{flex:none;font-size:var(--fs-micro);font-family:var(--mono);
+  padding:1px calc(7px*var(--fsx));border-radius:var(--r-pill);
+  background:var(--panel3);color:var(--tx2);border:1px solid var(--border2)}
+
+
+/* ---------- 合并（V2.12.x）后的补丁：大图顶栏在「大字号 + 1280 视口」下溢出 ----------
+   合并往 `#lb-top .acts` 里加了 `#lbNsfwCls`（内容安全人工归类）。这个按钮只在
+   引擎可用且是媒体文件时才显示，所以装了 onnxruntime 的源码模式 / 用户自己下了模型的
+   exe 都会真的多出一个按钮 —— 720×fsx=2 实测顶栏溢出 9px（`v4_batch2_check` 抓住）。
+   处置：≤1440 只收间距（顶栏 gap 与 .acts 内 gap 各降一档），**不动按钮内边距**，
+   保住设计规范里 32px 控件的手感；按钮本身一个不隐藏。 */
+@media (max-width:1440px){
+  #lb-top{gap:var(--sp-1)}
+  #lb-top .acts{gap:calc(2px*var(--fsx))}
+}

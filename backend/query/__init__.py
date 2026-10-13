@@ -1,0 +1,1 @@
+"""Versioned catalog query contracts."""

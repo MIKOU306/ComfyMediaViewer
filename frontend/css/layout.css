@@ -1,0 +1,592 @@
+/* ComfyMediaViewer · css/layout.css
+   布局骨架：顶栏 / 内容区工具条 / 侧栏 / 底栏分页 / 列表视图。
+   尺寸全部来自 tokens.css（顶栏 64px、侧栏 260px、全局内边距 16px、控件 32px）。 */
+
+/* ---------- 布局骨架 ---------- */
+#app{height:100vh;display:flex;flex-direction:column}
+#top{height:var(--top-h);background:var(--panel);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:var(--gap-ctl);padding:0 var(--pad-page);
+  flex:none;z-index:var(--z-sticky);position:relative}
+#main{flex:1;display:flex;min-height:0;position:relative}
+#bot{height:var(--bot-h);background:var(--panel);border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:var(--sp-3);padding:0 var(--pad-page);
+  font-size:var(--fs-sm);color:var(--tx3);flex:none;position:relative;
+  transition:height var(--dur-base) var(--ease-std)}
+/* 瀑布流模式：无页码/每页数量/跳页，底栏缩窄 */
+body.flow #bot{height:calc(24px*var(--fsx))}
+body.flow #perPage,body.flow .pgjump{display:none}
+
+/* ---------- 顶栏 ---------- */
+/* 线性图标（SVG，细描边）：顶栏 18px / 侧栏 16px / 卡片 16px（规范 4.3） */
+.iico{width:calc(16px*var(--fsx));height:calc(16px*var(--fsx));flex:none;fill:none;
+  stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;display:block}
+.iico.filled{fill:currentColor;stroke:none}
+/* 侧栏顶部品牌（吸顶，字号取规范 H1 20px 的收敛值 15px，避免与 7 个分区抢视线） */
+/* 修复：#left 顶部 padding 已移除，品牌块自然位即吸顶位，滚动全程零位移（不上下浮动） */
+#sideBrand{position:sticky;top:0;z-index:var(--z-ctl);display:flex;align-items:center;gap:var(--sp-2);
+  padding:var(--sp-3) var(--sp-3) var(--sp-2);
+  background:var(--s-bg);border-bottom:1px solid var(--s-border)}
+#sideBrand .cube{width:calc(26px*var(--fsx));height:calc(26px*var(--fsx));border-radius:var(--r-md);flex:none;
+  background:var(--brand-grad);display:flex;align-items:center;justify-content:center;
+  color:var(--on-ac);font-size:calc(11px*var(--fsx));font-weight:var(--fw-bold);letter-spacing:var(--ls-tight);
+  box-shadow:var(--glow-ac)}
+#sideBrand .nm{font-size:var(--fs-lg);color:var(--s-tx);font-weight:var(--fw-semi);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+#sideBrand .ver{opacity:.5;font-size:var(--fs-micro);font-weight:var(--fw-normal);margin-left:var(--sp-1)}
+#top .brand{display:none}
+#crumbs{display:flex;align-items:center;gap:1px;padding:0 var(--sp-1);font-size:var(--fs-ui);color:var(--tx2);
+  overflow:hidden;flex:0 1 auto;min-width:0}
+#crumbs a{color:var(--tx2);cursor:pointer;text-decoration:none;padding:var(--sp-1) var(--sp-2);
+  border-radius:var(--r-sm);white-space:nowrap;transition:background-color var(--dur-base) var(--ease-std),color var(--dur-base) var(--ease-std)}
+#crumbs a:hover{background:var(--panel3);color:var(--tx)}
+#crumbs .sep{color:var(--tx3);font-size:var(--fs-micro)}
+#count{color:var(--tx3);font-size:var(--fs-sm);margin-left:var(--sp-2);padding:0 var(--sp-1);
+  white-space:nowrap;flex:none;font-variant-numeric:tabular-nums}
+/* 顶栏图标按钮：32×32，图标化（文字标签隐藏，title 提示保留） */
+.tbtn{min-height:var(--h-ctl);height:var(--h-ctl);display:inline-flex;align-items:center;gap:var(--sp-1);
+  font-size:var(--fs-ui);color:var(--tx2);padding:0 var(--sp-2);flex:none}
+#top .tbtn{font-size:0;width:var(--h-ctl);padding:0;justify-content:center;border-radius:var(--r-md);color:var(--tx2)}
+#top .tbtn .ic{font-size:0;display:flex;align-items:center;justify-content:center}
+#top .tbtn .iico{width:calc(18px*var(--fsx));height:calc(18px*var(--fsx))}
+#top .tbtn:hover{background:var(--panel3);color:var(--tx)}
+#top .tbtn.on{color:var(--ac-tx);background:var(--ac-soft)}
+/* 顶栏「刷新」：点击后在位旋转，给「正在重扫」一个即时回声（底栏同时报状态） */
+#top .tbtn.spin{color:var(--ac-tx);background:var(--ac-soft)}
+#top .tbtn.spin .ic svg{animation:cmvSpin var(--dur-spin) linear infinite}
+@keyframes cmvSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){#top .tbtn.spin .ic svg{animation:none;opacity:.55}}
+#top .tspace{flex:1 1 auto;min-width:var(--sp-2)}
+#top .sep{width:1px;height:calc(20px*var(--fsx));background:var(--border);margin:0 var(--sp-1);flex:none}
+
+/* ---------- 搜索框（规范 4.2：32px 高、16px 圆角、深色底、左侧放大镜） ---------- */
+#qbox{display:flex;gap:var(--sp-1);align-items:center;flex:1 1 auto;max-width:calc(560px*var(--fsx));
+  margin:0 auto}
+.qwrap{position:relative;display:flex;flex:1;min-width:0}
+.qico{position:absolute;left:calc(13px*var(--fsx));top:50%;transform:translateY(-50%);
+  display:flex;color:var(--tx3);pointer-events:none}
+/* 批次 B（2026-10-06）：原先这里用两个伪元素手绘「圆 + 矩形手柄」当放大镜 ——
+   纯 CSS 画法跨浏览器渲染有差异，且是全站唯一不走 ICO 的图标。改由 setupIcons 填空槽。 */
+.qico .iico{width:calc(13px*var(--fsx));height:calc(13px*var(--fsx))}
+#qmode{font-size:var(--fs-sm);padding:0 var(--sp-1);width:calc(84px*var(--fsx));flex:none;
+  background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--tx3);
+  appearance:auto}   /* 深色实底：transparent 会让 Windows 原生渲染成白色 */
+#qmode:hover{color:var(--tx);border-color:var(--border2)}
+#qmode:focus{box-shadow:none;border-color:transparent;color:var(--tx)}
+#q{width:100%;height:var(--h-ctl);min-height:var(--h-ctl);font-size:var(--fs-ui);
+  background:var(--input-bg);border-color:var(--border);
+  border-radius:calc(var(--h-ctl) / 2);   /* 规范 4.2：胶囊 = 标准控件高度的一半（= 32px 高时的 16px 圆角），字号变化自动跟随 */
+  padding-left:calc(36px*var(--fsx));padding-right:var(--sp-3)}
+#q:focus{border-color:var(--ac2);box-shadow:var(--ring)}
+#fit{font-size:var(--fs-sm);height:var(--h-ctl-sm);min-height:var(--h-ctl-sm)}
+/* H2（2026-10-07）：原为 `#filter,#sort` —— `#filter` 幽灵控件已从 DOM 删除，规则随之收窄 */
+#sort{font-size:var(--fs-sm);height:var(--h-ctl);max-width:calc(130px*var(--fsx))}
+#recwrap{display:flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-ui);color:var(--tx2);
+  cursor:pointer;flex:none;user-select:none}
+
+/* 内容区背景（顶栏是浮起的面板，画布保持最深） */
+#content{background:var(--bg)}
+
+/* ---------- 内容区工具条（规范 1.3：32px 控件、12px 间距） ---------- */
+/* 改版：保持薄高度（28px 控件 + 上下 1px），与顶栏的视觉区分靠画布底色 + 下边发丝线 */
+#gridBar{display:flex;align-items:center;gap:var(--gap-ctl);flex:none;
+  padding:calc(1px*var(--fsx)) var(--pad-page);background:var(--bg);border-bottom:1px solid var(--border)}
+#gridBar .grow{flex:1 1 auto;min-width:0}
+#gridBar select{height:var(--h-ctl);font-size:var(--fs-sm)}
+#gridBar #sort{max-width:calc(160px*var(--fsx))}
+#gridBar .gbtn{width:var(--h-ctl);height:var(--h-ctl);min-height:var(--h-ctl);padding:0;display:flex;
+  align-items:center;justify-content:center;color:var(--tx2);border-radius:var(--r-md)}
+#gridBar .gbtn .ic{display:flex;align-items:center;justify-content:center}
+#gridBar .gbtn:hover{background:var(--panel3);color:var(--tx)}
+#gridBar .gbtn.on{background:var(--ac-soft);color:var(--ac2-tx)}
+/* 分段控件（网格｜列表） */
+.seg{display:flex;align-items:center;gap:calc(2px*var(--fsx));padding:1px;border-radius:var(--r-md);
+  background:var(--panel2);border:1px solid var(--border)}
+.segbtn{width:calc(28px*var(--fsx));height:calc(24px*var(--fsx));min-height:calc(24px*var(--fsx));padding:0;
+  display:flex;align-items:center;justify-content:center;color:var(--tx3);border-radius:var(--r-sm)}
+.segbtn .ic{display:flex;align-items:center;justify-content:center}
+.segbtn:hover{color:var(--tx)}
+.segbtn.on{background:var(--panel);color:var(--tx);box-shadow:var(--sh-xs)}
+
+/* 工具条分组标签（视图 / 排序） */
+#gridBar .glbl{font-size:var(--fs-meta);color:var(--tx3);flex:none;letter-spacing:var(--ls-tight)}
+
+/* ---------- 底栏分页（规范 7：分页居中、每页数量右对齐） ----------
+   结构：[‹] [页码 .pgnums（横向滚动）] [›]；左右箭头固定在两端，
+   页码再多也不会挤动箭头，也不会和「1 / 尾页」贴在一起被误点。 */
+#pager{position:absolute;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:var(--sp-2);
+  max-width:calc(100% - var(--pg-side)*var(--fsx))}
+#pager .pgnums{display:flex;align-items:center;gap:var(--sp-1);min-width:0;
+  overflow-x:auto;scrollbar-width:none}
+#pager .pgnums::-webkit-scrollbar{display:none}
+#pager button{min-width:calc(24px*var(--fsx));width:auto;height:calc(24px*var(--fsx));
+  min-height:calc(24px*var(--fsx));padding:0 var(--sp-1);font-size:var(--fs-sm);
+  color:var(--tx2);border-radius:var(--r-pill);line-height:var(--lh-none);font-variant-numeric:tabular-nums;
+  flex:none}
+/* 页码与省略号等宽：同一屏下槽位数恒定（个数由 JS 按可用宽度算，见 settings.js 的
+   pagerSlots()），三个分支总长都等于槽位数 —— 翻页时整行宽度不变，居中后不会左右抖 */
+#pager .pgnums>button,#pager .pgnums>.gap{width:calc(26px*var(--fsx));min-width:calc(26px*var(--fsx));
+  padding:0;text-align:center;flex:none}
+#pager button:hover:not(:disabled){background:var(--panel3);color:var(--tx)}
+#pager button.on{background:var(--ac);border-color:var(--ac);color:var(--on-ac);font-weight:var(--fw-semi)}
+/* 翻页箭头：给个描边底，与页码数字明显区分（一眼看出是「上一页/下一页」） */
+#pager button.pgnav{background:var(--panel2);border-color:var(--border);color:var(--tx2);
+  display:flex;align-items:center;justify-content:center}   /* 批次 B：内容由字符换成 svg，需 flex 居中 */
+#pager button.pgnav .iico{width:calc(15px*var(--fsx));height:calc(15px*var(--fsx))}
+#pager button.pgnav:hover:not(:disabled){background:var(--panel3);border-color:var(--border2);color:var(--tx)}
+/* U4 收口：与全局禁用态同强度（原独立硬编码 .45），并补齐五属性 ——
+   分页箭头的底色/边框来自上面 .pgnav 规则，不显式去掉的话会留下一个
+   「有底有框但点不动」的按钮，与其它禁用按钮不一致。 */
+#pager button.pgnav:disabled{background:transparent;border-color:transparent;
+  color:var(--tx3);box-shadow:none;opacity:var(--dis-op);cursor:not-allowed}
+#pager .gap{color:var(--tx3);font-size:var(--fs-sm);line-height:calc(24px*var(--fsx))}
+/* 跳页输入：位于底栏右侧（与「每页数量」并排），输入页码回车直达 */
+.pgjump{display:flex;align-items:center;gap:var(--sp-1);flex:none;
+  color:var(--tx3);font-size:var(--fs-meta);white-space:nowrap}
+#pgJump{width:calc(46px*var(--fsx));height:calc(24px*var(--fsx));min-height:calc(24px*var(--fsx));
+  padding:0 var(--sp-1);font-size:var(--fs-sm);color:var(--tx);text-align:center;
+  background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-sm);
+  font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+#pgJump::-webkit-inner-spin-button,#pgJump::-webkit-outer-spin-button{
+  -webkit-appearance:none;margin:0}
+#pgJump:focus{outline:none;border-color:var(--ac)}
+/* 底栏压薄后，「每页数量」下拉同步收窄（24px），避免撑高底栏 */
+#bot select{height:calc(24px*var(--fsx));min-height:calc(24px*var(--fsx));
+  padding:0 var(--sp-1);font-size:var(--fs-meta)}
+#perPage{height:var(--h-ctl);min-height:var(--h-ctl);font-size:var(--fs-sm);padding:0 var(--sp-1);
+  border-radius:var(--r-sm);border-color:var(--border)}
+#botState,#hintTrig{flex:none;white-space:nowrap}
+/* V4 批次 4：⌨ → keyboard 图标 */
+/* E5-6（2026-09-23）：padding / border-radius 此前写在 index.html 的 style 属性里
+   （`padding:0 4px;border-radius:4px`）—— 与紧邻的 #perPage 用的是同一组令牌，收进来对齐。 */
+#hintTrig{display:inline-flex;align-items:center;justify-content:center;color:var(--tx3);
+  cursor:pointer;padding:0 var(--sp-1);border-radius:var(--r-sm)}
+#hintTrig .iico{width:calc(14px*var(--fsx));height:calc(14px*var(--fsx))}
+#hintTrig:hover{color:var(--tx)}
+
+/* ---------- 列表视图：一行一条、固定行高、字段对齐 ----------
+   列：缩略图 / 文件名(+相对路径) / 类型 / 尺寸 / 大小 / 修改时间 / 模型 / 采样器 / 收藏 / 标签 / 操作
+   用 flex + order 排列（不用 grid 模板），这样窄屏隐藏某列时不会留下空档。
+   尺寸/模型/采样器来自 /api/meta_batch（提示词索引），未读到时先显示「…」。 */
+body.list-view #grid{display:flex;flex-direction:column;gap:calc(2px*var(--fsx))}
+#listHead{display:none;position:sticky;top:0;z-index:var(--z-ctl);align-items:center;gap:calc(10px*var(--fsx));
+  height:var(--h-ctl);padding:0 var(--sp-2);margin-bottom:var(--sp-1);
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--r-sm);
+  font-size:var(--fs-meta);color:var(--tx3);user-select:none;
+  text-transform:uppercase;letter-spacing:var(--ls-wide)}
+body.list-view #listHead{display:flex}
+#listHead .lh{flex:0 0 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.list-view #grid .card{display:flex;flex-direction:row;align-items:center;gap:calc(10px*var(--fsx));
+  height:calc(48px*var(--fsx));padding:0 var(--sp-2);aspect-ratio:auto;border-radius:var(--r-md);
+  background:var(--panel)}
+body.list-view #grid .card:hover{transform:none;border-color:var(--border)}
+body.list-view #grid .card>img,
+body.list-view #grid .card>video{order:1;
+  /* E5-4：宽度改读 --lc-thumb-w（表头 #listHead .lh-thumb 早就读它了）—— 见上方 V10 注释。 */
+  flex:0 0 calc(var(--lc-thumb-w,62px)*var(--fsx));width:calc(var(--lc-thumb-w,62px)*var(--fsx));
+  height:calc(var(--lc-thumb-h,38px)*var(--fsx));aspect-ratio:auto;margin:0;object-fit:cover;padding:0;
+  border-radius:var(--r-sm)}
+body.list-view #grid .card .cap{order:2;position:static;flex:1 1 auto;min-width:0;display:flex;
+  align-items:center;gap:var(--sp-2);background:none;padding:0;margin-top:0;
+  font-size:var(--fs-sm);color:var(--tx);pointer-events:none}
+body.list-view #grid .card .cap .cap-sub{flex:1 1 auto;min-width:0;color:var(--tx3);
+  display:inline-flex;align-items:center;gap:calc(2px*var(--fsx));
+  font-size:var(--fs-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+body.list-view #grid .card .lv-type{order:3}
+body.list-view #grid .card .lv-dim{order:4}
+body.list-view #grid .card .lv-size{order:5}
+body.list-view #grid .card .lv-time{order:6}
+body.list-view #grid .card .lv-model{order:7}
+body.list-view #grid .card .lv-sampler{order:8}
+body.list-view #grid .card .lv-type,
+body.list-view #grid .card .lv-dim,
+body.list-view #grid .card .lv-size,
+body.list-view #grid .card .lv-time,
+body.list-view #grid .card .lv-model,
+body.list-view #grid .card .lv-sampler{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--tx2);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
+body.list-view #grid .card .starcat{order:9;position:static;flex:0 0 calc(18px*var(--fsx));width:auto;height:auto;
+  line-height:var(--lh-none);text-align:center;background:none;color:var(--tx3);opacity:1;pointer-events:auto;
+  font-size:var(--fs-sm);text-shadow:none;display:none}   /* 列表里只留星标，分类走右键 */
+body.list-view #grid .card .star{order:9;position:static;flex:0 0 var(--star-w);width:auto;height:auto;
+  line-height:var(--lh-none);text-align:center;background:none;color:var(--tx3);opacity:1;pointer-events:auto;
+  font-size:calc(15px*var(--fsx));text-shadow:none}
+body.list-view #grid .card .star.on{color:var(--gold)}
+body.list-view #grid .card .lv-tags{order:10;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--tx3);font-size:var(--fs-meta)}
+/* V4 批次 1：标签列里的标记旗子（inline-flex 才能与 nowrap+ellipsis 共存） */
+body.list-view #grid .card .lv-tags .lvmk{display:inline-flex;margin-right:calc(3px*var(--fsx));
+  vertical-align:calc(-1px*var(--fsx));color:var(--tg-yellow-tx)}
+body.list-view #grid .card .lv-tags .iico{width:calc(11px*var(--fsx));height:calc(11px*var(--fsx))}
+body.list-view #grid .card .qacts{order:11;position:static;flex:0 0 calc(58px*var(--fsx));opacity:1;
+  pointer-events:auto;justify-content:flex-end}
+body.list-view #grid .card .bsel{order:0;position:static;flex:0 0 calc(23px*var(--fsx))}
+body.list-view #grid .card .snip,
+body.list-view #grid .card .wicon,
+body.list-view #grid .card .badge,
+body.list-view #grid .card .fcat,
+body.list-view #grid .card .mkb{display:none}
+/* 标签行在列表视图里「拆开」：标签文字隐藏，但里面的悬停操作（下载/打开）保留到「操作」列 */
+body.list-view #grid .card .cinfo{display:contents}   /* 浮层容器在列表视图拆开，保持原有列序 */
+body.list-view #grid .card .crdtags{display:contents}
+body.list-view #grid .card .crdtags .tgs,
+body.list-view #grid .card .crdtags .more{display:none}
+/* 列宽：表头与数据行共用同一组宽度（数据列此前只有 order 没有宽度，会按内容伸缩导致错位）。
+   V10（D3，2026-09-18）：宽度改由 CSS 变量 --lc-<col>-w 提供，**表头与数据行读同一个变量**
+   （此前两处各写一份 calc(NNpx) —— 拖一列只动表头、行不动的隐患就出在这里）。
+   变量默认值 = 原写死值，不设置变量时视觉零变化。
+   ⚠️ 变量默认值必须挂在 **body** 上，不能挂在 #listHead 上 —— 挂在 #listHead 会
+   在它自己这一层**重新声明**变量，把 columns.js 写在 body 上的用户值**遮蔽**掉
+   （首轮实测：拖宽后表头 72px / 数据行 132px，正是这个遮蔽造成的）。
+   ⚠️ E5-4（2026-09-23）：上面这条「表头与数据行读同一个变量」当时**漏了缩略图列** ——
+   `--lc-thumb-w` 定义了、表头也在用，但数据行仍写死 `calc(62px*var(--fsx))`
+   ⇒ 正是注释里警告的那个隐患（拖宽缩略图列，表头动、缩略图不动）。现已收口。 */
+body{--lc-thumb-w:62px;--lc-thumb-h:38px;--lc-type-w:46px;--lc-dim-w:88px;--lc-size-w:72px;
+  --lc-time-w:120px;--lc-model-w:180px;--lc-sampler-w:110px;--lc-tags-w:150px;--lc-acts-w:58px}
+#listHead .lh-thumb{flex:0 0 calc(var(--lc-thumb-w)*var(--fsx))}
+#listHead .lh-name{flex:1 1 auto;min-width:0}
+#listHead .lh-type{flex:0 0 calc(var(--lc-type-w)*var(--fsx))}
+#listHead .lh-dim{flex:0 0 calc(var(--lc-dim-w)*var(--fsx))}
+#listHead .lh-size{flex:0 0 calc(var(--lc-size-w)*var(--fsx))}
+#listHead .lh-time{flex:0 0 calc(var(--lc-time-w)*var(--fsx))}
+#listHead .lh-model{flex:0 1 calc(var(--lc-model-w)*var(--fsx))}
+#listHead .lh-sampler{flex:0 0 calc(var(--lc-sampler-w)*var(--fsx))}
+#listHead .lh-fav{flex:0 0 var(--star-w)}
+#listHead .lh-tags{flex:0 1 calc(var(--lc-tags-w)*var(--fsx))}
+#listHead .lh-acts{flex:0 0 calc(var(--lc-acts-w)*var(--fsx))}
+body.list-view #grid .card .lv-type{flex:0 0 calc(var(--lc-type-w,46px)*var(--fsx))}
+body.list-view #grid .card .lv-dim{flex:0 0 calc(var(--lc-dim-w,88px)*var(--fsx))}
+body.list-view #grid .card .lv-size{flex:0 0 calc(var(--lc-size-w,72px)*var(--fsx))}
+body.list-view #grid .card .lv-time{flex:0 0 calc(var(--lc-time-w,120px)*var(--fsx))}
+body.list-view #grid .card .lv-model{flex:0 1 calc(var(--lc-model-w,180px)*var(--fsx))}
+body.list-view #grid .card .lv-sampler{flex:0 0 calc(var(--lc-sampler-w,110px)*var(--fsx))}
+body.list-view #grid .card .lv-tags{flex:0 1 calc(var(--lc-tags-w,150px)*var(--fsx))}
+body.list-view #grid .card .star{flex:0 0 var(--star-w)}
+/* ---- V10 列宽拖拽热区：贴在每列表头右缘（6px 宽，覆盖在 padding 上） ---- */
+/* P1-30（2026-09-20）：
+   ① 悬停反馈此前写 `var(--ac-dim,transparent)` —— 但 `--ac-dim` **全库从未定义**，
+      所以回退到 `transparent` ⇒ 悬停时**完全没有任何视觉反馈**（用户不知道这里能拖）。
+      改用既有令牌 `--ac-soft`（与「选中」同一档强调色），悬停即可见。
+   ② 热区此前 `right:-5px; width:11px`（外溢到相邻列上），但父级
+      `#listHead .lh` 有 `overflow:hidden`（见本文件上方）⇒ 外溢的 5px **被裁掉**，
+      实际热区只剩 6px，比设计意图窄了一半。改为**全部画在盒内**（`right:0`），
+      宽度按 --fsx 给到 10px ⇒ 真实可拖区域与设计一致，也不再依赖 overflow 不裁。 */
+#listHead .lh{position:relative}
+#listHead .lh.lch-resizable::after{content:"";position:absolute;top:0;right:0;
+  /* E5-4：z-index 此前是裸数字 1 —— 违反工程约束「新写 z-index 必须取刻度」。
+     这一层是**索引表头**的覆盖层 ⇒ 取 --z-cap（该刻度注释里就写着「索引表头」）。 */
+  width:calc(10px*var(--fsx));height:100%;cursor:col-resize;z-index:var(--z-cap);
+  background:transparent;transition:background-color var(--dur-fast) var(--ease-std)}
+#listHead .lh.lch-resizable:hover::after{background:var(--ac-soft)}
+body.lch-dragging{cursor:col-resize}
+body.lch-dragging #listHead .lh.lch-resizable::after{background:var(--ac);}
+/* ---- V10 列显隐：手动隐藏带 !important，压过窄屏 @media 的 display:none ---- */
+#listHead .lh.lch-off,body.list-view #grid .card .lv-cell.lch-off{display:none !important}
+/* P1-22（2026-09-19）：**缩略图列是唯一的例外** —— 它在数据行里不是 `.lv-cell`，
+   而是卡片的主图（`body.list-view #grid .card>img`，见上面 order:1 那条），
+   所以上面那行规则**永远匹配不到它** ⇒ 从列管理勾掉「缩略图」只藏了表头，
+   行内缩略图纹丝不动，表头与数据行整体错开了一格（实测：表头 .lh-thumb 1 个、
+   数据行 .lv-thumb **0 个** ⇒ 隐藏后列宽对不上，后续每列左缘都偏 62px×fsx）。
+
+   ⚠️ 为什么不用给行内补一个 `.lv-thumb` 槽：列表视图的缩略图**就是**卡片主图，
+   再插一个空槽会变成两张图 / 多一格。正确的对应关系是「表头 .lh-thumb ↔ 行内 card>img」，
+   所以这里直接把隐藏规则**补充到主图上**，并在 columns.js 的 applyOff 里给它打锚。 */
+body.list-view #grid .card.thumb-off>img,
+body.list-view #grid .card.thumb-off>video{display:none !important}
+/* 表头右键提示：有列被藏起来时给个「已隐藏 N 列」的视觉线索（不影响布局） */
+#listHead.lch-has-off .lh-name::before{content:"";display:inline-block;width:calc(5px*var(--fsx));
+  height:calc(5px*var(--fsx));border-radius:50%;background:var(--ac);margin-right:calc(5px*var(--fsx));
+  vertical-align:calc(1px*var(--fsx))}
+/* 窄屏逐列收起（display:none 直接从 flex 流移除，不会留空档）
+   ⚠️ P1-25/26/27（2026-09-19）：下面这组 @media 断点是**纯 px** 的，只按视口宽度判，
+   完全不知道 `--fsx` 的存在 —— 而列宽是 `calc(NNpx * var(--fsx))`，字号一放大列就变宽，
+   断点却一次都不触发 ⇒ 表头横向溢出 / 弹性列被压到 0 宽。
+   实测：1024@150% 溢出 264px、1366@150% 溢出 117px、1440@150% 溢出 43px。
+   由于 **媒体查询里不能用 var()**（也不改 html 字号 ⇒ em/rem 不成立），
+   改由 columns.js 的 applyResponsiveCollapse() 算出「等效宽度 = 视口 / fsx」，
+   在 documentElement 上写 .rc-* 档位类；本文件同时给这些类加等价规则。
+   ⇒ 两套并存：@media 保住「视口本身就窄」的原有行为（回归零变化），
+     .rc-* 补上「视口不窄但字号大」的新增情形。 */
+@media (max-width:1280px){
+  #listHead .lh-sampler,body.list-view #grid .card .lv-sampler{display:none}
+}
+@media (max-width:1080px){
+  #listHead .lh-model,body.list-view #grid .card .lv-model{display:none}
+}
+@media (max-width:900px){
+  #listHead .lh-time,body.list-view #grid .card .lv-time{display:none}
+}
+@media (max-width:760px){
+  #listHead .lh-tags,body.list-view #grid .card .lv-tags,
+  #listHead .lh-type,body.list-view #grid .card .lv-type{display:none}
+}
+@media (max-width:620px){
+  #listHead .lh-dim,body.list-view #grid .card .lv-dim,
+  #listHead .lh-size,body.list-view #grid .card .lv-size{display:none}
+}
+/* ---- P1-25/26/27：随字号缩放的等价断点（由 columns.js 按「视口/--fsx」写类）----
+   与上面的 @media 规则**同优先级**（都是 class 选择器 + display:none），
+   谁命中都生效 —— 这正是想要的：两个条件任一满足就该收列。 */
+html.rc-sampler #listHead .lh-sampler,html.rc-sampler body.list-view #grid .card .lv-sampler{display:none}
+html.rc-model #listHead .lh-model,html.rc-model body.list-view #grid .card .lv-model{display:none}
+html.rc-time #listHead .lh-time,html.rc-time body.list-view #grid .card .lv-time{display:none}
+html.rc-tags-type #listHead .lh-tags,html.rc-tags-type body.list-view #grid .card .lv-tags,
+html.rc-tags-type #listHead .lh-type,html.rc-tags-type body.list-view #grid .card .lv-type{display:none}
+html.rc-dim-size #listHead .lh-dim,html.rc-dim-size body.list-view #grid .card .lv-dim,
+html.rc-dim-size #listHead .lh-size,html.rc-dim-size body.list-view #grid .card .lv-size{display:none}
+/* 目录行：列表里也压成一行 */
+body.list-view #grid .card.dir{flex-direction:row;justify-content:flex-start;height:calc(48px*var(--fsx));
+  aspect-ratio:auto;gap:calc(10px*var(--fsx))}
+body.list-view #grid .card.dir .fic{font-size:calc(20px*var(--fsx))}
+body.list-view #grid .card.dir .fic .iico{width:calc(20px*var(--fsx));height:calc(20px*var(--fsx))}
+body.list-view #grid .card.dir .dn{flex:1 1 auto;max-width:none;text-align:left}
+body.list-view #grid .card.dir .dc{flex:0 0 auto;color:var(--tx3)}
+
+@media (max-width:900px){
+  #top .brand{min-width:auto}
+  #crumbs{display:none}
+  #top>#btnUp{display:none}
+  #qmode{display:none}
+  #pager{position:static;transform:none}
+  #gridwrap{padding:var(--sp-3)}
+}
+@media (max-width:620px){
+  #top{gap:var(--sp-1);padding:0 var(--sp-2)}
+  #top .brand .nm{display:none}
+  #count{display:none}
+  #top>#btnAR{display:none}
+  #grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+}
+
+/* ---------- 左侧栏（规范 1.1 260px / 5.1 导航状态） ---------- */
+#left{width:var(--left-w);background:var(--panel);border-right:1px solid var(--border);
+  overflow-y:auto;overflow-x:hidden;flex:none;padding:0 0 var(--sp-4);
+  font-size:var(--fs-ui);margin-left:0;
+  /* 折叠位移（2026-09-17）：原先过渡 width→0，实机逐帧采样发现三个问题 ——
+     ① width 是布局属性，逐帧重排左栏内部（nowrap+ellipsis 的文字每帧重算截断）并连带主区网格；
+     ② .collapsed 里 overflow 由 auto→hidden 在第 0 帧就生效，原生滚动条瞬间消失 ⇒
+        内部内容整体弹宽 11px、padding-bottom 瞬跳 16px ⇒「先抖一下再滑走」的顿挫感；
+     ③ 时长用了 --dur-base(200ms)，而 tokens 把「抽屉 / 面板进出」定义为 --dur-slow(280ms)。
+     改为 margin-left 负值横移：左栏宽度恒定 ⇒ 内部零重排；overflow/padding/border 全程不变 ⇒ 无瞬跳。 */
+  transition:margin-left var(--dur-slow) var(--ease-std);
+  scrollbar-width:thin}
+#left::-webkit-scrollbar{width:8px}   /* V6 例外：原生滚动条，不随字号 */
+/* 收起：整条左栏左移自身宽度（宽度不变，内部不重排；不外溢到视口左侧，不产生横向滚动条） */
+#left.collapsed{margin-left:calc(-1 * var(--left-w))}
+
+/* 区块：统一左右内边距，区块之间用发丝线分隔 */
+#left .lsec{display:flex;flex-direction:column;min-height:0;padding:0 var(--sp-3)}
+#left .lsec + .lsec{margin-top:var(--sp-3);padding-top:var(--sp-3);
+  border-top:1px solid var(--border)}
+/* 组间节奏（V2.9.2 U7）：7 个分区按语义分两组 —— nav 定位（位置 / 库 / 生成参数）
+   与 org 组织（收藏 / 标签 / 格式 / 其他）。原 cfg 组（外观与操作）已整块搬进
+   设置抽屉，侧栏只留纯浏览分区，分组数随之由三组降为两组。
+   （H4 · 2026-10-06：org 组末块由「筛选」更名为「其他」—— 模型 / 采样器 / 分辨率
+     已迁进「生成参数」（H1 · 2026-10-07 该区由「工作流类型」更名为「生成参数」），
+     该区只留时间范围 + 标记状态。分组/顺序不变，故 .grp-first 不动。）
+   CSS 无法表达「前一个兄弟的分组不同」，所以用 .grp-first 标记组首块：
+   组内 = 发丝线 + 12px，组间 = 20px 大留白 + 亮一档发丝线（--border2）。
+   靠接近性分组，而不是给每组加框加底 —— 侧栏本来就窄，再堆容器会更挤。
+   折叠态由后面的 .collapsed 规则覆盖间距（只留分组线，保持可辨）。 */
+#left .lsec.grp-first{margin-top:var(--sp-5);padding-top:var(--sp-4);
+  border-top:1px solid var(--border2)}
+/* 全局首块（位置）：上方是品牌条，不再补线补间距 */
+#left .lsec.grp-first.grp-lead{margin-top:0;padding-top:0;border-top:none}
+
+/* 区块标题（规范 H2 的收敛值：13px/600；16px 会让 7 个分区挤掉一屏） */
+#left h4{font-size:var(--fs-ui);letter-spacing:var(--ls-tight);color:var(--tx2);
+  font-weight:var(--fw-semi);margin:0 0 var(--sp-2);user-select:none;display:flex;align-items:center;
+  gap:var(--sp-1);flex:none;position:sticky;top:0;z-index:var(--z-cap);background:var(--panel);
+  padding:var(--sp-1) 0;border-radius:var(--r-sm)}
+#left h4::before{content:"";width:calc(3px*var(--fsx));height:calc(12px*var(--fsx));border-radius:1px;
+  background:var(--ac);flex:none}
+#left h4 span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#left h4 .ghost{padding:0 var(--sp-1);height:calc(22px*var(--fsx));min-height:calc(22px*var(--fsx));
+  font-size:var(--fs-micro);flex:none;display:inline-flex;align-items:center;justify-content:center}
+#left h4 .ghost .iico{width:calc(13px*var(--fsx));height:calc(13px*var(--fsx))}
+/* 区块可收起：点标题收起/展开，状态记在 localStorage（mv.sidecol），刷新后保持 */
+#left h4{cursor:pointer}
+#left h4:hover{color:var(--tx);background:var(--panel2)}
+#left h4:focus-visible{outline:none;color:var(--tx);background:var(--panel2);
+  box-shadow:var(--ring-in)}   /* 等效替代：2px 强调色内描边（U8 口径统一为 2px） */
+/* 组间层次（V2.9.2 U7）：只靠「标题明度 + 强调条不透明度」做一档主次，
+   不动字号、不改条宽 —— 分区字号一旦分档，13px 与 12px 混排反而更乱；
+   条宽改粗细也会让标题左缘参差。让视线先落在检索路径（nav）上，
+   组织类（org）退半档，需要时找得到但不抢注意力。
+   （原 cfg 档的 --tx3 / 2px 细条已随该组一并删除，本就无元素匹配。） */
+#left .lsec[data-grp="nav"] h4{color:var(--tx)}
+#left .lsec[data-grp="org"] h4::before{opacity:.85}
+/* V4 批次 4：折叠箭头改用图标槽（伪元素塞不进 svg） */
+#left h4 .secar{flex:none;color:var(--tx3);display:flex;align-items:center;justify-content:center;
+  transition:transform var(--dur-fast) var(--ease-std)}
+#left h4 .secar .iico{width:calc(11px*var(--fsx));height:calc(11px*var(--fsx))}
+#left .lsec.collapsed > *:not(h4){display:none}
+#left .lsec.collapsed{margin-top:var(--sp-2);padding-top:var(--sp-2)}
+#left .lsec.collapsed h4{margin-bottom:0}
+#left .lsec.collapsed h4 .secar{transform:rotate(-90deg)}
+
+#left .lbox{display:flex;flex-direction:column;gap:var(--sp-2);padding:0}
+#left .lbox.lbox-in{margin-top:var(--sp-2)}
+#left .subh{font-size:var(--fs-micro);color:var(--tx3);letter-spacing:var(--ls-tight);display:flex;
+  align-items:center;gap:var(--sp-1);padding:calc(2px*var(--fsx)) calc(2px*var(--fsx)) 0}
+#left .subh::after{content:"";flex:1;height:1px;background:var(--border)}
+#left .lbox select,#left #rootSel{width:100%;min-width:0;max-width:none}
+
+/* ---------- 常用目录：自定义下拉 ----------
+   原生 <select> 未展开时 hover 不显示 title，多个同名 output 无法区分；
+   改为自定义 listbox：按钮/菜单项均可 hover 显示完整路径，同名项自动附加父目录名后缀 */
+#left .rs-wrap{position:relative;display:block}
+#left .rs-btn{display:flex;align-items:center;gap:var(--sp-1);width:100%;
+  min-width:0;height:var(--h-ctl);min-height:var(--h-ctl);padding:0 var(--sp-2);
+  font:inherit;font-size:var(--fs-ui);color:var(--tx);text-align:left;
+  background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-sm);
+  cursor:pointer;transition:border-color var(--dur-fast),background var(--dur-fast)}
+#left .rs-btn:hover{background:var(--panel3)}
+#left .rs-btn:focus-visible,#left .rs-btn[aria-expanded="true"]{outline:none;
+  border-color:var(--ac2);box-shadow:var(--ring)}
+#left .rs-ico{flex:none;font-size:var(--fs-sm);opacity:.85}
+#left .rs-txt{flex:1;min-width:0;display:flex;align-items:baseline;gap:var(--sp-1);overflow:hidden}
+#left .rs-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#left .rs-suf{flex:none;font-size:var(--fs-micro);color:var(--tx3);white-space:nowrap}
+/* A 方案（2026-10-07）：根目录**总数**从 #sideNav 根行挪到这里（原那行已删）。
+   flex:none + nowrap —— 窄栏时优先压缩 `.rs-name`（它自带 ellipsis），数字不被切；
+   与 `.rs-suf`（同名根目录的后缀）并列时也不互相抢位。 */
+#left .rs-hint{flex:none;font-size:var(--fs-micro);color:var(--tx3);white-space:nowrap}
+#left .rs-car{flex:none;color:var(--tx3);display:flex;align-items:center;justify-content:center;
+  transition:transform var(--dur-fast)}
+#left .rs-car .iico{width:calc(11px*var(--fsx));height:calc(11px*var(--fsx))}
+#left .rs-btn[aria-expanded="true"] .rs-car{transform:rotate(180deg)}
+#rootMenu{position:fixed;z-index:var(--z-menu2);min-width:calc(190px*var(--fsx));
+  max-width:calc(380px*var(--fsx));
+  /* 高度上限跟着视口走（V2.9.2 修复）：8 个常用目录 + 分隔 +「选择文件夹…」约 400px，
+     原先写死的 340px 会把末尾一两项裁到可视区外 —— 不是滚动不到，是 elementFromPoint
+     真的点不到，用户表现为「切不到某个目录」。60vh 在 720p 上约 432px 够放。 */
+  max-height:min(74vh, calc(600px*var(--fsx)));
+  display:flex;flex-direction:column;overflow:hidden;
+  padding:0;background:var(--panel2);border:1px solid var(--border2);
+  border-radius:var(--r-md);box-shadow:var(--sh-2)}
+/* 只有目录列表滚动，底部入口不参与滚动 */
+#rootMenu .rm-list{display:flex;flex-direction:column;min-height:0;
+  overflow-y:auto;padding:var(--sp-1);scrollbar-width:thin}
+#rootMenu .rm-list::-webkit-scrollbar{width:8px}
+/* 「选择文件夹…」固定在菜单底部（不是 sticky 浮动）：
+   它是用户「重新挑一个目录」的唯一入口，必须永远够得着；
+   同时因为它不浮在内容上，也不会盖住任何一条目录项。 */
+#rootMenu .rm-foot{flex:none;padding:var(--sp-1);background:var(--panel2)}
+#rootMenu .rm-foot.sep{border-top:1px solid var(--border)}
+#rootMenu .rmi{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 var(--sp-1);
+  padding:var(--sp-1) var(--sp-2);border-radius:var(--r-md);
+  cursor:pointer;font-size:var(--fs-ui);color:var(--tx);
+  transition:background-color var(--dur-base) var(--ease-std),color var(--dur-base) var(--ease-std)}
+#rootMenu .rmi:hover,#rootMenu .rmi.sel{background:var(--ac);color:var(--on-ac)}
+#rootMenu .rmi.cur{box-shadow:var(--bar-ac)}
+#rootMenu .rm-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+#rootMenu .rm-suf{flex:none;font-size:var(--fs-micro);color:var(--tx3);white-space:nowrap}
+#rootMenu .rm-path{flex:1 0 100%;font-size:var(--fs-micro);color:var(--tx3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+#rootMenu .rmi:hover .rm-suf,#rootMenu .rmi.sel .rm-suf{color:var(--on-ac-dim)}
+#rootMenu .rmi:hover .rm-path,#rootMenu .rmi.sel .rm-path{color:var(--on-ac-dim)}
+#rootMenu .rm-empty{padding:var(--sp-2);font-size:var(--fs-sm);color:var(--tx3)}
+#rootMenu .rmi-pick{color:var(--ac2-tx)}
+#rootMenu .rmi-pick:hover{background:var(--ac);color:var(--on-ac)}
+#left .lbox label{font-size:var(--fs-ui)}
+#left .lbox #fit{width:100%;flex:none;background:var(--panel2);border:1px solid var(--border);
+  color:var(--tx2);justify-content:flex-start}
+#left .lbox #fit:hover{background:var(--panel3);border-color:var(--border2);color:var(--tx)}
+
+/* 滑块卡片：标签 + 当前值 + 轨道 + 两端刻度 */
+#left .densWrap{display:flex;flex-direction:column;gap:var(--sp-1);
+  padding:var(--sp-2);background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-md)}
+#left .densWrap .dhead{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-1)}
+#left .densWrap .dlabel{font-size:var(--fs-micro);color:var(--tx2);letter-spacing:var(--ls-tight)}
+#left .densWrap .dval{font-size:var(--fs-micro);color:var(--ac-tx);font-variant-numeric:tabular-nums}
+#left .densWrap .dtick{display:flex;justify-content:space-between;font-size:calc(9.5px*var(--fsx));color:var(--tx3);padding:0 1px}
+/* 左栏折叠把手：贴左栏右缘，收起后自动贴到最左，始终可点 */
+#leftTgl{position:absolute;top:calc(var(--top-h) + var(--sp-3));left:calc(var(--left-w) - 1px);z-index:var(--z-raise);
+  width:calc(20px*var(--fsx));height:calc(56px*var(--fsx));display:flex;align-items:center;justify-content:center;
+  font-size:calc(9px*var(--fsx));color:var(--tx3);background:var(--panel2);border:1px solid var(--border);
+  border-left:none;border-radius:0 var(--r-lg) var(--r-lg) 0;cursor:pointer;padding:0;
+  transition:left var(--dur-slow) var(--ease-std),color var(--dur-fast)}
+#leftTgl .iico{width:calc(12px*var(--fsx));height:calc(12px*var(--fsx))}
+#leftTgl:hover{color:var(--tx);background:var(--panel3)}
+#left.collapsed~#leftTgl{left:0;border-left:1px solid var(--border);border-radius:0 var(--r-lg) var(--r-lg) 0}
+
+/* ---------- 侧栏导航条目（规范 5.1：默认无底 / 悬停浅底 / 选中白字加粗 + 左侧强调条） ---------- */
+.litem{display:flex;align-items:center;gap:var(--sp-2);padding:0 var(--sp-2);
+  border-radius:var(--r-md);cursor:pointer;color:var(--tx2);min-height:var(--h-ctl);white-space:nowrap;
+  font-size:var(--fs-ui);transition:background-color var(--dur-base) var(--ease-std),color var(--dur-base) var(--ease-std)}
+.litem:hover{background:var(--panel2);color:var(--tx)}
+.litem.on{background:var(--s-active);color:var(--tx);font-weight:var(--fw-semi);
+  box-shadow:var(--bar-ac)}
+.litem .ic{width:calc(18px*var(--fsx));display:flex;align-items:center;justify-content:center;
+  text-align:center;font-size:var(--fs-sm);flex:none;opacity:.9}
+.litem .ic .iico{width:calc(16px*var(--fsx));height:calc(16px*var(--fsx))}
+.litem .nm,.tlvl .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.litem .cnt{margin-left:auto;font-size:var(--fs-micro);color:var(--tx3);background:var(--panel2);
+  border-radius:var(--r-pill);padding:0 var(--sp-1);min-width:calc(34px*var(--fsx));text-align:center;
+  font-variant-numeric:var(--num);flex:none}
+.litem.on .cnt{color:var(--tx2);background:var(--s-chip)}
+.litem .star{margin-left:auto;font-size:var(--fs-sm);color:var(--gold);display:none}
+.litem.starred .star{display:inline}
+/* 卡片标记角标（⚑ + 状态）：与收藏角标同层，靠左放置避免互相遮挡 */
+.card .mkb{position:absolute;left:var(--sp-1);top:var(--sp-1);z-index:var(--z-chip);
+  font-size:var(--fs-micro);line-height:calc(18px*var(--fsx));color:var(--tg-yellow-tx);
+  background:var(--ovl-chip-bg);border:1px solid var(--tg-yellow-bg);border-radius:var(--r-pill);
+  padding:0 var(--sp-1);pointer-events:none;font-weight:var(--fw-semi);
+  display:flex;align-items:center;gap:calc(2px*var(--fsx))}
+.card .mkb .iico{width:calc(10px*var(--fsx));height:calc(10px*var(--fsx))}
+#sideNav,#libNav,#favNav,#tagNav{display:flex;flex-direction:column;gap:calc(2px*var(--fsx))}
+/* 长列表限高（V2.10.0 U7）：标签 / 库 / 收藏这类条目可能有几十上百条，
+   不限高会把末尾的「筛选」顶到很远的下方，滚动半天才够得着。
+   实际高度见下方 clamp（约 259~520px，随视口走），超出时分区内滚动
+   （滚到底自动接回侧栏滚动，不阻断滚动链）。 */
+#left #libNav,#left #wfNav,#left #favNav,#left #tagNav,#left #fmtNav{
+  /* 限高用 clamp 而不是写死 300px：随视口高收紧/放宽（36vh），
+     720p 约 259px、1080p 约 389px、2K 约 518px、4K 触顶 520px；
+     上下界都乘 --fsx，150% 字号在矮屏上取更宽的下界 330px。 */
+  max-height:clamp(calc(220px*var(--fsx)), 36vh, calc(520px*var(--fsx)));
+  overflow-y:auto;scrollbar-width:thin}
+#left #libNav::-webkit-scrollbar,#left #wfNav::-webkit-scrollbar,#left #favNav::-webkit-scrollbar,
+#left #tagNav::-webkit-scrollbar,#left #fmtNav::-webkit-scrollbar{width:6px}
+#sideNav{margin-bottom:0}
+/* 位置树：根目录单独一行，路径各段逐级缩进 + 树形连接符 */
+#sideNav .litem.root{background:var(--panel2);border:1px solid var(--border);margin-bottom:calc(3px*var(--fsx))}
+#sideNav .litem.root:hover{background:var(--panel3)}
+#sideNav .litem.root.on{background:var(--s-active);border-color:var(--ac-soft)}
+#sideNav .litem.root .hint{margin-left:auto;flex:none;font-size:var(--fs-micro);
+  color:var(--tx3);letter-spacing:var(--ls-tight)}
+#sideNav .litem.seg .ic{color:var(--tx3);font-size:var(--fs-micro);opacity:1}
+#sideNav .litem.seg.on .ic{color:var(--ac-tx)}
+#favNav .litem .ic{color:var(--gold);font-size:var(--fs-sm)}
+/* 左栏格式复选框行（可多选，不勾=全部） */
+#left .lchk{display:flex;align-items:center;gap:var(--sp-2);
+  padding:0 var(--sp-2);border-radius:var(--r-md);cursor:pointer;
+  font-size:var(--fs-ui);color:var(--tx2);min-height:var(--h-ctl);user-select:none;
+  transition:background-color var(--dur-base) var(--ease-std),color var(--dur-base) var(--ease-std)}
+#left .lchk:hover{background:var(--panel2);color:var(--tx)}
+#left .lchk.on{color:var(--ac-tx)}
+#left .lchk input{margin:0;flex:none;width:calc(13px*var(--fsx));height:calc(13px*var(--fsx));
+  accent-color:var(--ac2)}
+#left .lchk .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#left .lchk .cnt{flex:none;font-size:var(--fs-micro);color:var(--tx3);
+  font-variant-numeric:var(--num);min-width:calc(28px*var(--fsx));text-align:right}
+/* 计数统一（V2.9.2 U7）：等宽（tabular）+ 等高（lining）数字，并给固定最小宽度 ——
+   数量从 9 跳到 10 / 100 时行内不抖，多行计数纵向也能对齐。
+   字体不支持 tnum 时浏览器自动回退，不会破坏布局。 */
+#left .cnt,#left .dval,#tagPanel .tph .cnt,#rootMenu .rmi .cnt{
+  font-variant-numeric:var(--num);font-feature-settings:"tnum" 1,"lnum" 1}
+
+/* ---------- V4 图标批次 3 · 根目录菜单 / 工具菜单（原 📂 ◈ ◫ 字符） ---------- */
+#rootMenu .rmi-pick .rm-name{display:flex;align-items:center;gap:calc(5px*var(--fsx))}
+#rootMenu .rmi-pick .rm-name .iico{width:calc(14px*var(--fsx));height:calc(14px*var(--fsx));flex:none}
+#moreBox .tbtn{display:inline-flex;align-items:center;gap:calc(4px*var(--fsx))}
+#moreBox .tbtn .ic{display:flex;align-items:center;justify-content:center}
+#moreBox .tbtn .iico{width:calc(16px*var(--fsx));height:calc(16px*var(--fsx))}
+
+/* ============================================================
+   V4 图标批次 4（左栏与空状态）· 2026-09-17
+   —— 字符换 svg 后必须显式居中：字符靠 line-height + text-align 居中，svg 不吃这套。
+   ============================================================ */
+body.list-view #grid .card .cap .cap-sub .iico{width:calc(10px*var(--fsx));height:calc(10px*var(--fsx));
+  flex:none;opacity:.85}
+body.list-view #grid .card .cap .cap-sub > span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
